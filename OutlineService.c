@@ -7,7 +7,7 @@
 
 SERVICE_STATUS _service_status;
 SERVICE_STATUS_HANDLE _service_status_handle;
-DWORD _thread_id;		
+DWORD _thread_id;
 
 int write_to_log(const char* str) {
 #if 0
