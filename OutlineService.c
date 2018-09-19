@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #define SVC_NAME "OutlineService"
 #define PIPE_NAME "OutlineServicePipe"
@@ -13,6 +14,8 @@ DWORD _thread_id;
 //////////////////////////////////////////////////////////////////////////
 // pipe server API
 
+#define BUFSIZE 512
+
 HANDLE pipe_create(const char *pipe_name) {
     char buffer[MAX_PATH] = { 0 };
     HANDLE handle;
@@ -20,10 +23,10 @@ HANDLE pipe_create(const char *pipe_name) {
     sprintf(buffer, "\\\\.\\Pipe\\%s", pipe_name);
     handle = CreateNamedPipeA(buffer, 
         PIPE_ACCESS_DUPLEX, // open mode
-        PIPE_TYPE_BYTE | PIPE_READMODE_BYTE, // pipe mode
+        PIPE_TYPE_MESSAGE|PIPE_READMODE_MESSAGE|PIPE_WAIT, // pipe mode
         PIPE_UNLIMITED_INSTANCES, // Num. of MaxInstances: between 1 and PIPE_UNLIMITED_INSTANCES
-        0, // out buffer size
-        0, // in buffer size
+        BUFSIZE, // out buffer size
+        BUFSIZE, // in buffer size
         1000, // timeout
         NULL // Security descriptor
         );
@@ -35,11 +38,14 @@ HANDLE pipe_create(const char *pipe_name) {
 }
 
 #define PIPE_EXIT_MSG "CBC28B3B-897E-4DD4-8531-AD5DAD64AD88"
+BOOL pipe_exit_flag = FALSE;
 
 void pipe_exit_loop(const char *pipe_name) {
     HANDLE handle;
     DWORD done_size;
     char buffer[MAX_PATH] = { 0 };
+
+    pipe_exit_flag = TRUE;
 
     sprintf(buffer, "\\\\.\\Pipe\\%s", pipe_name);
     if (WaitNamedPipeA(buffer, NMPWAIT_WAIT_FOREVER) == 0) {
@@ -61,59 +67,111 @@ void pipe_exit_loop(const char *pipe_name) {
 
 typedef BOOL(*fn_process_message)(const BYTE *msg, size_t msg_size, BYTE *result, size_t *result_size, void *p);
 
-void pipe_loop(HANDLE handle, fn_process_message process_message, void *p) {
-    if (handle==NULL || handle==INVALID_HANDLE_VALUE || process_message==NULL) {
+struct pipe_cxt {
+    HANDLE pipe;
+    fn_process_message callback;
+    void *p;
+};
+
+DWORD __stdcall client_thread(LPVOID lpvParam);
+
+void pipe_infinite_loop(fn_process_message process_message, void *p) {
+    if (process_message==NULL) {
         return;
     }
 
-    while ((ConnectNamedPipe(handle, NULL) ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED))) {
-        DWORD done_size = 0;
-        BYTE buffer[MAX_PATH] = { 0 };
-        BYTE result[MAX_PATH] = { 0 };
-        size_t result_size = 0;
-        BOOL fSuccess = FALSE;
+    while(pipe_exit_flag == FALSE) {
+        BOOL   fConnected = FALSE;
+        HANDLE hThread = NULL;
+        DWORD dwThreadId = 0;
+        struct pipe_cxt *ctx = NULL;
+        char buffer[MAX_PATH] = { 0 };
+        HANDLE pipe = NULL;
 
-        fSuccess = ReadFile(handle, buffer, sizeof(buffer), &done_size, NULL);
-        if (!fSuccess || done_size == 0) {
-            if (GetLastError() == ERROR_BROKEN_PIPE) {
-                sprintf((char *)buffer, "client disconnected.\n");
-                continue;
-            } else {
-                sprintf((char *)buffer, "ReadFile failed with error %d\n", GetLastError());
-                OutputDebugStringA(buffer);
-            }
+        pipe = pipe_create(PIPE_NAME);
+        if (pipe==NULL || pipe==INVALID_HANDLE_VALUE) {
             break;
         }
 
-        if (memcmp(buffer, PIPE_EXIT_MSG, strlen(PIPE_EXIT_MSG)) == 0) {
-            break;
-        }
+        //
+        // https://docs.microsoft.com/zh-cn/windows/desktop/ipc/multithreaded-pipe-server
+        //
+        fConnected = ConnectNamedPipe(pipe, NULL) ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED);
 
-        result_size = sizeof(result);
-        if(process_message(buffer, (size_t)done_size, result, &result_size, p) == FALSE) {
+        if (!fConnected) { 
+            // The client could not connect, so close the pipe. 
+            CloseHandle(pipe);
             continue;
         }
 
-        fSuccess = WriteFile(handle, result, result_size, &done_size, NULL);
+        ctx = (struct pipe_cxt *)calloc(1, sizeof(struct pipe_cxt));
+        ctx->callback = process_message;
+        ctx->p = p;
+        ctx->pipe = pipe;
 
-        if (!fSuccess || result_size != done_size) {
-            sprintf((char *)buffer, "WriteFile failed, GLE=%d.\n", GetLastError());
+        // Create a thread for this client. 
+        hThread = CreateThread(NULL, 0, client_thread, (LPVOID)ctx, 0, &dwThreadId);
+        if (hThread == NULL) {
+            sprintf(buffer, "CreateThread failed, GLE=%d.\n", GetLastError());
             OutputDebugStringA(buffer);
-            break;
+            CloseHandle(ctx->pipe);
+            free(ctx);
+            continue;
         }
+        CloseHandle(hThread);
     }
 }
 
-void pipe_destroy(HANDLE handle) {
-    if (handle==NULL || handle==INVALID_HANDLE_VALUE) {
-        return;
+DWORD __stdcall client_thread(LPVOID lpvParam) {
+    struct pipe_cxt *ctx = (struct pipe_cxt *)lpvParam;
+    do {
+        if (ctx==NULL || ctx->callback==NULL || ctx->pipe==NULL) {
+            break;
+        }
+        while (1) {
+            DWORD done_size = 0;
+            BYTE buffer[BUFSIZE] = { 0 };
+            BYTE result[BUFSIZE] = { 0 };
+            size_t result_size = 0;
+            BOOL fSuccess = FALSE;
+            fSuccess = ReadFile(ctx->pipe, buffer, sizeof(buffer), &done_size, NULL);
+            if (!fSuccess || done_size == 0) {
+                if (GetLastError() == ERROR_BROKEN_PIPE) {
+                    sprintf((char *)buffer, "client disconnected.\n");
+                } else {
+                    sprintf((char *)buffer, "ReadFile failed with error %d\n", GetLastError());
+                }
+                OutputDebugStringA((char *)buffer);
+                break;
+            }
+            if (memcmp(buffer, PIPE_EXIT_MSG, strlen(PIPE_EXIT_MSG)) == 0) {
+                break;
+            }
+
+            result_size = sizeof(result);
+            if(ctx->callback(buffer, (size_t)done_size, result, &result_size, ctx->p) == FALSE) {
+                break;
+            }
+
+            done_size = 0;
+            fSuccess = WriteFile(ctx->pipe, result, result_size, &done_size, NULL);
+
+            if (!fSuccess || result_size != done_size) {
+                sprintf((char *)buffer, "WriteFile failed, GLE=%d.\n", GetLastError());
+                OutputDebugStringA((char *)buffer);
+                break;
+            }
+        }
+    } while(0);
+    if (ctx) {
+        if (ctx->pipe) {
+            FlushFileBuffers(ctx->pipe); 
+            DisconnectNamedPipe(ctx->pipe); 
+            CloseHandle(ctx->pipe);
+        }
+        free(ctx);
     }
-    // Flush the pipe to allow the client to read the pipe's contents
-    // before disconnecting. Then disconnect the pipe, and close the
-    // handle to this pipe instance.
-    FlushFileBuffers(handle);
-    DisconnectNamedPipe(handle);
-    CloseHandle(handle);
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -127,12 +185,7 @@ BOOL outline_svc_message(const BYTE *msg, size_t msg_size, BYTE *result, size_t 
 }
 
 DWORD __stdcall outline_msg_server_thread(LPVOID lpvParam) {
-    HANDLE pipe = pipe_create(PIPE_NAME);
-    if (pipe==NULL || pipe==INVALID_HANDLE_VALUE) {
-        return -1;
-    }
-    pipe_loop(pipe, outline_svc_message, NULL);
-    pipe_destroy(pipe);
+    pipe_infinite_loop(outline_svc_message, lpvParam);
     return 0;
 }
 
