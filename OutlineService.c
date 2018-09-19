@@ -14,7 +14,7 @@ DWORD _thread_id;
 // pipe server API
 
 HANDLE pipe_create(const char *pipe_name) {
-    char buffer[256];
+    char buffer[MAX_PATH] = { 0 };
     HANDLE handle;
 
     sprintf(buffer, "\\\\.\\Pipe\\%s", pipe_name);
@@ -39,7 +39,7 @@ HANDLE pipe_create(const char *pipe_name) {
 void pipe_exit_loop(const char *pipe_name) {
     HANDLE handle;
     DWORD done_size;
-    char buffer[256] = { 0 };
+    char buffer[MAX_PATH] = { 0 };
 
     sprintf(buffer, "\\\\.\\Pipe\\%s", pipe_name);
     if (WaitNamedPipeA(buffer, NMPWAIT_WAIT_FOREVER) == 0) {
@@ -68,8 +68,8 @@ void pipe_loop(HANDLE handle, fn_process_message process_message, void *p) {
 
     while ((ConnectNamedPipe(handle, NULL) ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED))) {
         DWORD done_size = 0;
-        BYTE buffer[256] = { 0 };
-        BYTE result[256] = { 0 };
+        BYTE buffer[MAX_PATH] = { 0 };
+        BYTE result[MAX_PATH] = { 0 };
         size_t result_size = 0;
         BOOL fSuccess = FALSE;
 
@@ -181,7 +181,7 @@ void __stdcall service_control_handler(DWORD request) {
 
 // The worker loop of a service
 void run_message_loop(void) {
-    MSG msg;
+    MSG msg = { 0 };
     while (GetMessage(&msg, 0, 0, 0) > 0) {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
