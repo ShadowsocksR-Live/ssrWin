@@ -6,6 +6,7 @@
 #define PIPE_NAME "OutlineServicePipe"
 
 #pragma comment(linker, "/subsystem:\"windows\" /entry:\"mainCRTStartup\"") // no console window
+#pragma comment(lib, "Rpcrt4.lib")
 
 SERVICE_STATUS _service_status;
 SERVICE_STATUS_HANDLE _service_status_handle;
@@ -37,7 +38,7 @@ HANDLE pipe_create(const char *pipe_name) {
     return handle;
 }
 
-#define PIPE_EXIT_MSG "CBC28B3B-897E-4DD4-8531-AD5DAD64AD88"
+char pipe_exit_msg[MAX_PATH] = "CBC28B3B-897E-4DD4-8531-AD5DAD64AD88";
 BOOL pipe_exit_flag = FALSE;
 
 void pipe_exit_loop(const char *pipe_name) {
@@ -61,7 +62,7 @@ void pipe_exit_loop(const char *pipe_name) {
         OutputDebugStringA(buffer);
         return;
     }
-    WriteFile(handle, PIPE_EXIT_MSG, strlen(PIPE_EXIT_MSG) + 1, &done_size, NULL);
+    WriteFile(handle, pipe_exit_msg, strlen(pipe_exit_msg) + 1, &done_size, NULL);
     CloseHandle(handle);
 }
 
@@ -78,6 +79,18 @@ DWORD __stdcall client_thread(LPVOID lpvParam);
 void pipe_infinite_loop(fn_process_message process_message, void *p) {
     if (process_message==NULL) {
         return;
+    }
+
+    {
+        GUID guid;
+        RPC_CSTR str = NULL;
+        CoCreateGuid(&guid);
+
+        UuidToStringA(&guid, &str);
+        if (str) {
+            strncpy(pipe_exit_msg, (char *)str, sizeof(pipe_exit_msg));
+            RpcStringFreeA(&str);
+        }
     }
 
     while(pipe_exit_flag == FALSE) {
@@ -144,7 +157,7 @@ DWORD __stdcall client_thread(LPVOID lpvParam) {
                 OutputDebugStringA((char *)buffer);
                 break;
             }
-            if (memcmp(buffer, PIPE_EXIT_MSG, strlen(PIPE_EXIT_MSG)) == 0) {
+            if (memcmp(buffer, pipe_exit_msg, strlen(pipe_exit_msg)) == 0) {
                 break;
             }
 
