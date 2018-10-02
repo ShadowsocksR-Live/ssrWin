@@ -12,6 +12,8 @@ SERVICE_STATUS _service_status;
 SERVICE_STATUS_HANDLE _service_status_handle;
 DWORD _thread_id;
 
+void write_to_log(const char* str);
+
 //////////////////////////////////////////////////////////////////////////
 // pipe server API
 
@@ -33,13 +35,24 @@ HANDLE pipe_create(const char *pipe_name) {
         );
     if (handle == INVALID_HANDLE_VALUE) {
         sprintf(buffer, "CreateNamedPipe failed with error %d\n", GetLastError());
-        OutputDebugStringA(buffer);
+        write_to_log(buffer);
     }
     return handle;
 }
 
-char pipe_exit_msg[MAX_PATH] = "CBC28B3B-897E-4DD4-8531-AD5DAD64AD88";
 BOOL pipe_exit_flag = FALSE;
+
+void guid_generator(char *guid_str, size_t size) {
+    GUID guid;
+    RPC_CSTR str = NULL;
+    CoCreateGuid(&guid);
+
+    UuidToStringA(&guid, &str);
+    if (str) {
+        strncpy(guid_str, (char *)str, size);
+        RpcStringFreeA(&str);
+    }
+}
 
 void pipe_exit_loop(const char *pipe_name) {
     HANDLE handle;
@@ -51,7 +64,7 @@ void pipe_exit_loop(const char *pipe_name) {
     sprintf(buffer, "\\\\.\\Pipe\\%s", pipe_name);
     if (WaitNamedPipeA(buffer, NMPWAIT_WAIT_FOREVER) == 0) {
         sprintf(buffer, "WaitNamedPipe failed with error %d\n", GetLastError());
-        OutputDebugStringA(buffer);
+        write_to_log(buffer);
         return;
     }
 
@@ -59,10 +72,11 @@ void pipe_exit_loop(const char *pipe_name) {
     handle = CreateFileA(buffer, GENERIC_READ|GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (handle == INVALID_HANDLE_VALUE) {
         sprintf(buffer, "CreateFile failed with error %d\n", GetLastError());
-        OutputDebugStringA(buffer);
+        write_to_log(buffer);
         return;
     }
-    WriteFile(handle, pipe_exit_msg, strlen(pipe_exit_msg) + 1, &done_size, NULL);
+    guid_generator(buffer, sizeof(buffer));
+    WriteFile(handle, buffer, strlen(buffer) + 1, &done_size, NULL);
     CloseHandle(handle);
 }
 
@@ -79,18 +93,6 @@ DWORD __stdcall client_thread(LPVOID lpvParam);
 void pipe_infinite_loop(fn_process_message process_message, void *p) {
     if (process_message==NULL) {
         return;
-    }
-
-    {
-        GUID guid;
-        RPC_CSTR str = NULL;
-        CoCreateGuid(&guid);
-
-        UuidToStringA(&guid, &str);
-        if (str) {
-            strncpy(pipe_exit_msg, (char *)str, sizeof(pipe_exit_msg));
-            RpcStringFreeA(&str);
-        }
     }
 
     while(pipe_exit_flag == FALSE) {
@@ -126,7 +128,7 @@ void pipe_infinite_loop(fn_process_message process_message, void *p) {
         hThread = CreateThread(NULL, 0, client_thread, (LPVOID)ctx, 0, &dwThreadId);
         if (hThread == NULL) {
             sprintf(buffer, "CreateThread failed, GLE=%d.\n", GetLastError());
-            OutputDebugStringA(buffer);
+            write_to_log(buffer);
             CloseHandle(ctx->pipe);
             free(ctx);
             continue;
@@ -154,10 +156,7 @@ DWORD __stdcall client_thread(LPVOID lpvParam) {
                 } else {
                     sprintf((char *)buffer, "ReadFile failed with error %d\n", GetLastError());
                 }
-                OutputDebugStringA((char *)buffer);
-                break;
-            }
-            if (memcmp(buffer, pipe_exit_msg, strlen(pipe_exit_msg)) == 0) {
+                write_to_log((char *)buffer);
                 break;
             }
 
@@ -171,7 +170,7 @@ DWORD __stdcall client_thread(LPVOID lpvParam) {
 
             if (!fSuccess || result_size != done_size) {
                 sprintf((char *)buffer, "WriteFile failed, GLE=%d.\n", GetLastError());
-                OutputDebugStringA((char *)buffer);
+                write_to_log((char *)buffer);
                 break;
             }
         }
@@ -202,7 +201,7 @@ DWORD __stdcall outline_msg_server_thread(LPVOID lpvParam) {
     return 0;
 }
 
-int write_to_log(const char* str) {
+void write_to_log(const char* str) {
 #if 0
 #define LOGFILE "C:\\memstatus.txt"
     FILE *log;
@@ -212,14 +211,15 @@ int write_to_log(const char* str) {
     }
     fprintf(log, "%s\r\n", str);
     fclose(log);
+#else
+    OutputDebugStringA(str);
 #endif
-    return 0;
 }
 
 // Service initialization
 int init_service() {
-    int result;
-    result = write_to_log("Monitoring started.");
+    int result = 0;
+    write_to_log("Monitoring started.");
     return(result);
 }
 
