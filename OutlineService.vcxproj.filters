@@ -18,5 +18,13 @@
     <ClCompile Include="OutlineService.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="mjson.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="mjson.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
