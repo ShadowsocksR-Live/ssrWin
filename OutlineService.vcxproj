@@ -76,11 +76,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="mjson.c" />
+    <ClCompile Include="cmdhandler.c" />
+    <ClCompile Include="json.c" />
     <ClCompile Include="OutlineService.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="mjson.h" />
+    <ClInclude Include="cmdhandler.h" />
+    <ClInclude Include="json.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

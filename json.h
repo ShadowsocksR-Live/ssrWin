@@ -45,18 +45,13 @@
 #endif
 
 #include <stdlib.h>
+#include <string.h>
 
 #ifdef __cplusplus
-
-   #include <string.h>
-
-   extern "C"
-   {
-
+extern "C" {
 #endif
 
-typedef struct
-{
+struct json_settings {
    unsigned long max_memory;
    int settings;
 
@@ -69,38 +64,32 @@ typedef struct
    void * user_data;  /* will be passed to mem_alloc and mem_free */
 
    size_t value_extra;  /* how much extra space to allocate for values? */
-
-} json_settings;
+};
 
 #define json_enable_comments  0x01
 
-typedef enum
-{
-   json_none,
-   json_object,
-   json_array,
-   json_integer,
-   json_double,
-   json_string,
-   json_boolean,
-   json_null
-
+typedef enum json_type {
+   json_type_null,
+   json_type_object,
+   json_type_array,
+   json_type_integer,
+   json_type_double,
+   json_type_string,
+   json_type_boolean,
 } json_type;
 
-extern const struct _json_value json_value_none;
-       
-typedef struct _json_object_entry
-{
-    json_char * name;
-    unsigned int name_length;
-    
-    struct _json_value * value;
-    
-} json_object_entry;
+struct json_object;
 
-typedef struct _json_value
-{
-   struct _json_value * parent;
+extern const struct json_object json_object_none;
+
+struct json_object_entry {
+    json_char * name;
+    // unsigned int name_length;
+    struct json_object * object;
+};
+
+struct json_object {
+   struct json_object * parent;
 
    json_type type;
 
@@ -110,53 +99,44 @@ typedef struct _json_value
       json_int_t integer;
       double dbl;
 
-      struct
-      {
+      struct {
          unsigned int length;
          json_char * ptr; /* null terminated */
-
       } string;
 
-      struct
-      {
+      struct {
          unsigned int length;
 
-         json_object_entry * values;
+         struct json_object_entry * entries;
 
          #if defined(__cplusplus) && __cplusplus >= 201103L
-         decltype(values) begin () const
-         {  return values;
+         decltype(entries) begin () const {
+             return entries;
          }
-         decltype(values) end () const
-         {  return values + length;
+         decltype(entries) end () const {
+             return entries + length;
          }
          #endif
-
       } object;
 
-      struct
-      {
-         unsigned int length;
-         struct _json_value ** values;
+      struct {
+         size_t length;
+         struct json_object ** items;
 
          #if defined(__cplusplus) && __cplusplus >= 201103L
-         decltype(values) begin () const
-         {  return values;
+         decltype(items) begin () const {
+             return items;
          }
-         decltype(values) end () const
-         {  return values + length;
+         decltype(items) end () const {
+             return items + length;
          }
          #endif
-
       } array;
-
    } u;
 
-   union
-   {
-      struct _json_value * next_alloc;
+   union {
+      struct json_object * next_alloc;
       void * object_mem;
-
    } _reserved;
 
    #ifdef JSON_TRACK_SOURCE
@@ -174,38 +154,38 @@ typedef struct _json_value
 
       public:
 
-         inline _json_value ()
-         {  memset (this, 0, sizeof (_json_value));
+         inline json_object () {
+             memset (this, 0, sizeof (struct json_object));
          }
 
-         inline const struct _json_value &operator [] (int index) const
+         inline const struct json_object &operator [] (int index) const
          {
-            if (type != json_array || index < 0
+            if (type != json_type_array || index < 0
                      || ((unsigned int) index) >= u.array.length)
             {
-               return json_value_none;
+               return json_object_none;
             }
 
-            return *u.array.values [index];
+            return *u.array.items [index];
          }
 
-         inline const struct _json_value &operator [] (const char * index) const
-         { 
-            if (type != json_object)
-               return json_value_none;
+         inline const struct json_object &operator [] (const char * index) const
+         {
+            if (type != json_type_object)
+               return json_object_none;
 
             for (unsigned int i = 0; i < u.object.length; ++ i)
-               if (!strcmp (u.object.values [i].name, index))
-                  return *u.object.values [i].value;
+               if (!strcmp (u.object.entries [i].name, index))
+                  return *u.object.entries [i].object;
 
-            return json_value_none;
+            return json_object_none;
          }
 
          inline operator const char * () const
-         {  
+         {
             switch (type)
             {
-               case json_string:
+               case json_type_string:
                   return u.string.ptr;
 
                default:
@@ -214,13 +194,13 @@ typedef struct _json_value
          }
 
          inline operator json_int_t () const
-         {  
+         {
             switch (type)
             {
-               case json_integer:
+               case json_type_integer:
                   return u.integer;
 
-               case json_double:
+               case json_type_double:
                   return (json_int_t) u.dbl;
 
                default:
@@ -229,21 +209,21 @@ typedef struct _json_value
          }
 
          inline operator bool () const
-         {  
-            if (type != json_boolean)
+         {
+            if (type != json_type_boolean)
                return false;
 
             return u.boolean != 0;
          }
 
          inline operator double () const
-         {  
+         {
             switch (type)
             {
-               case json_integer:
+               case json_type_integer:
                   return (double) u.integer;
 
-               case json_double:
+               case json_type_double:
                   return u.dbl;
 
                default:
@@ -253,31 +233,27 @@ typedef struct _json_value
 
    #endif
 
-} json_value;
-       
-json_value * json_parse (const json_char * json,
-                         size_t length);
+};
+
+struct json_object * json_parse (const json_char * json, size_t length);
 
 #define json_error_max 128
-json_value * json_parse_ex (json_settings * settings,
+struct json_object * json_parse_ex (struct json_settings * settings,
                             const json_char * json,
                             size_t length,
                             char * error);
 
-void json_value_free (json_value *);
+void json_object_free (struct json_object *);
 
 
 /* Not usually necessary, unless you used a custom mem_alloc and now want to
  * use a custom mem_free.
  */
-void json_value_free_ex (json_settings * settings,
-                         json_value *);
+void json_object_free_ex (struct json_settings * settings, struct json_object *);
 
 
 #ifdef __cplusplus
-   } /* extern "C" */
+} /* extern "C" */
 #endif
 
 #endif
-
-
