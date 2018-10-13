@@ -24,12 +24,18 @@
     <ClCompile Include="cmdhandler.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="net_adapter_enum.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="json.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="cmdhandler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="net_adapter_enum.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

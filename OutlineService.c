@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "cmdhandler.h"
+
 #define SVC_NAME "OutlineService"
 #define PIPE_NAME "OutlineServicePipe"
 
@@ -190,9 +192,14 @@ DWORD __stdcall client_thread(LPVOID lpvParam) {
 // outline service
 
 BOOL outline_svc_message(const BYTE *msg, size_t msg_size, BYTE *result, size_t *result_size, void *p) {
+#if 0
     size_t size = min(msg_size, *result_size);
     memmove(result, msg, size);
     *result_size = size;
+#else
+    struct service_request request = { 0 };
+    parse_request((char *)msg, &request);
+#endif
     return TRUE;
 }
 

@@ -78,11 +78,13 @@
   <ItemGroup>
     <ClCompile Include="cmdhandler.c" />
     <ClCompile Include="json.c" />
+    <ClCompile Include="net_adapter_enum.c" />
     <ClCompile Include="OutlineService.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cmdhandler.h" />
     <ClInclude Include="json.h" />
+    <ClInclude Include="net_adapter_enum.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
