@@ -33,14 +33,14 @@ wchar_t * utf8_to_wchar_string(const char *str, wchar_t *receiver, size_t size) 
     return receiver;
 }
 
-const char * draft_inet_ntop(struct sockaddr *sa, char *buf, size_t buf_size) {
+const wchar_t * draft_inet_ntop(struct sockaddr *sa, wchar_t *buf, size_t size) {
     void *pAddr = NULL;
     if (sa->sa_family == AF_INET) {
         pAddr = &(((struct sockaddr_in*)sa)->sin_addr);
     } else {
         pAddr = &(((struct sockaddr_in6*)sa)->sin6_addr);
     }
-    return inet_ntop(sa->sa_family, pAddr, buf, buf_size);
+    return InetNtopW(sa->sa_family, pAddr, buf, size);
 }
 
 void enum_adapter_info(ULONG family, fn_iterate_adapter pfn, void *p) {

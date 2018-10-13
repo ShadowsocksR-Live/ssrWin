@@ -6,22 +6,23 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <string.h>
+#include <tchar.h>
 #include <stdarg.h>
 #include <assert.h>
 
 #include "cmdhandler.h"
 #include "json.h"
 
-static const char *IPV4_SUBNETS[] = { "0.0.0.0/1", "128.0.0.0/1" };
-static const char *IPV6_SUBNETS[] = { "fc00::/7", "2000::/4", "3000::/4" };
-static const char *TAP_DEVICE_NAME = "outline-tap0";
-static const char *CMD_NETSH = "netsh";
+static const wchar_t *IPV4_SUBNETS[] = { L"0.0.0.0/1", L"128.0.0.0/1" };
+static const wchar_t *IPV6_SUBNETS[] = { L"fc00::/7", L"2000::/4", L"3000::/4" };
+static const wchar_t *TAP_DEVICE_NAME = L"outline-tap0";
+static const wchar_t *CMD_NETSH = L"netsh";
 
 struct router_info {
-    char proxyIp[MAX_PATH];
-    char routerIp[MAX_PATH];
-    char gatewayIp[MAX_PATH];
-    char gatewayInterfaceName[MAX_PATH];
+    wchar_t proxyIp[MAX_PATH];
+    wchar_t routerIp[MAX_PATH];
+    wchar_t gatewayIp[MAX_PATH];
+    wchar_t gatewayInterfaceName[MAX_PATH];
 };
 
 struct router_info g_router_inst = { 0 };
@@ -30,13 +31,13 @@ struct router_info g_router_inst = { 0 };
 BOOL pick_live_adapter(PIP_ADAPTER_ADDRESSES pCurrAddresses, void *p);
 
 void configure_routing(const char *routerIp, const char *proxyIp, int isAutoConnect);
-void reset_routing(const char *proxyIp, const char *proxyInterfaceName);
-int run_command_wrapper(const char *cmd, const char *argv_fmt, ...);
-int delete_proxy_route(const char *proxyIp, const char *proxyInterfaceName);
-void set_gateway_properties(const char *p);
+void reset_routing(const wchar_t *proxyIp, const wchar_t *proxyInterfaceName);
+int run_command_wrapper(const wchar_t *cmd, const wchar_t *argv_fmt, ...);
+int delete_proxy_route(const wchar_t *proxyIp, const wchar_t *proxyInterfaceName);
+void set_gateway_properties(const wchar_t *p);
 void remove_ipv4_redirect(void);
 void start_routing_ipv6(void);
-int run_command(const char *cmd, const char *args);
+int run_command(const wchar_t *cmd, const wchar_t *args);
 
 static void process_json_generic(struct json_object* value, struct service_request *request) {
     int length, x;
@@ -94,19 +95,20 @@ void handle_request(struct service_request *request) {
 }
 
 void configure_routing(const char *routerIp, const char *proxyIp, int isAutoConnect) {
+    wchar_t tmp[MAX_PATH] = { 0 };
     if (routerIp==NULL || strlen(routerIp)==0 || proxyIp==NULL || strlen(proxyIp)==0) {
         return;
     }
-    run_command_wrapper(CMD_NETSH, "interface ip set interface %s metric=0", TAP_DEVICE_NAME);
+    run_command_wrapper(CMD_NETSH, L"interface ip set interface %s metric=0", TAP_DEVICE_NAME);
 
     enum_adapter_info(AF_UNSPEC, pick_live_adapter, &g_router_inst);
 
-    strcpy(g_router_inst.proxyIp, proxyIp);
-    strcpy(g_router_inst.routerIp, routerIp);
+    lstrcpyW(g_router_inst.proxyIp, utf8_to_wchar_string(proxyIp, tmp, ARRAYSIZE(tmp)));
+    lstrcpyW(g_router_inst.routerIp, utf8_to_wchar_string(routerIp, tmp, ARRAYSIZE(tmp)));
 }
 
-void reset_routing(const char *proxyIp, const char *proxyInterfaceName) {
-    if (proxyIp && strlen(proxyIp)) {
+void reset_routing(const wchar_t *proxyIp, const wchar_t *proxyInterfaceName) {
+    if (proxyIp && lstrlenW(proxyIp)) {
         if (delete_proxy_route(proxyIp, proxyInterfaceName) == 0) {
             // log("failed to remove route to the proxy server: {e.Message}")
         }
@@ -119,21 +121,21 @@ void reset_routing(const char *proxyIp, const char *proxyInterfaceName) {
     start_routing_ipv6();
 }
 
-int run_command_wrapper(const char *cmd, const char *argv_fmt, ...) {
-    char buffer[MAX_PATH * 2] = { 0 };
+int run_command_wrapper(const wchar_t *cmd, const wchar_t *argv_fmt, ...) {
+    wchar_t buffer[MAX_PATH * 2] = { 0 };
     va_list arg;
     va_start(arg, argv_fmt);
-    vsprintf(buffer, argv_fmt, arg);
+    vswprintf(buffer, ARRAYSIZE(buffer), argv_fmt, arg);
     va_end(arg);
     return run_command(cmd, buffer);
 }
 
-int delete_proxy_route(const char *proxyIp, const char *proxyInterfaceName) {
-    static const char *fmt = "interface ipv4 delete route %s/32 interface=\"%s\"";
+int delete_proxy_route(const wchar_t *proxyIp, const wchar_t *proxyInterfaceName) {
+    static const wchar_t *fmt = L"interface ipv4 delete route %s/32 interface=\"%s\"";
     return run_command_wrapper(CMD_NETSH, fmt, proxyIp, proxyInterfaceName);
 }
 
-void set_gateway_properties(const char *p) {
+void set_gateway_properties(const wchar_t *p) {
 }
 
 void remove_ipv4_redirect(void) {
@@ -146,27 +148,27 @@ void build_response(int code, const char *msg, char *out_buf, size_t size) {
     sprintf(out_buf, "{ statusCode: %d, errorMessage: \"%s\" }", code, msg);
 }
 
-int run_command(const char *cmd, const char *args) {
-    STARTUPINFOA si;
+int run_command(const wchar_t *cmd, const wchar_t *args) {
+    STARTUPINFOW si;
     PROCESS_INFORMATION pi;
     DWORD exit_code = 0;
     size_t len = 0;
-    char *buffer = NULL;
+    wchar_t *buffer = NULL;
 
     ZeroMemory( &si, sizeof(si) );
     si.cb = sizeof(si);
     ZeroMemory( &pi, sizeof(pi) );
 
-    len = strlen(cmd) + strlen(args) + 10;
-    buffer = (char *) calloc(len, sizeof(char));
-    if (cmd[0] == '"') {
-        sprintf(buffer, "%s %s", cmd, args);
+    len = lstrlenW(cmd) + lstrlenW(args) + 10;
+    buffer = (wchar_t *) calloc(len, sizeof(wchar_t));
+    if (cmd[0] == L'"') {
+        swprintf(buffer, len, L"%s %s", cmd, args);
     } else {
-        sprintf(buffer, "\"%s\" %s", cmd, args);
+        swprintf(buffer, len, L"\"%s\" %s", cmd, args);
     }
 
     // Start the child process. 
-    if( !CreateProcessA( NULL,   // No module name (use command line)
+    if( !CreateProcessW( NULL,   // No module name (use command line)
         buffer,        // Command line
         NULL,           // Process handle not inheritable
         NULL,           // Thread handle not inheritable
@@ -178,7 +180,7 @@ int run_command(const char *cmd, const char *args) {
         &pi )           // Pointer to PROCESS_INFORMATION structure
         ) 
     {
-        printf( "CreateProcess failed (%d).\n", GetLastError() );
+        wprintf( L"CreateProcess failed (%d).\n", GetLastError() );
         return -1;
     }
 
@@ -202,13 +204,11 @@ void interfacesWithIpv4Gateways(PIP_ADAPTER_ADDRESSES pAddresses, void *p);
 BOOL pick_live_adapter(PIP_ADAPTER_ADDRESSES pCurrAddresses, void *p) {
     unsigned int i = 0;
     PIP_ADAPTER_GATEWAY_ADDRESS_LH gateway = NULL;
-    char friendly_name[MAX_PATH] = { 0 };
 
     if (pCurrAddresses->IfType==IF_TYPE_SOFTWARE_LOOPBACK) {
         return TRUE;
     }
-    wchar_string_to_utf8(pCurrAddresses->FriendlyName, friendly_name, sizeof(friendly_name));
-    if (strcmp(friendly_name, TAP_DEVICE_NAME) == 0) {
+    if (lstrcmpW(pCurrAddresses->FriendlyName, TAP_DEVICE_NAME) == 0) {
         return TRUE;
     }
     if (pCurrAddresses->OperStatus != IfOperStatusUp) {
@@ -235,7 +235,7 @@ void interfacesWithIpv4Gateways(PIP_ADAPTER_ADDRESSES pCurrAddresses, void *p) {
     IP_ADAPTER_DNS_SERVER_ADDRESS *pDnServer = NULL;
     PIP_ADAPTER_GATEWAY_ADDRESS_LH gateway = NULL;
     IP_ADAPTER_PREFIX *pPrefix = NULL;
-    char s[INET6_ADDRSTRLEN] = { 0 };
+    wchar_t s[INET6_ADDRSTRLEN] = { 0 };
     int i;
 
     struct router_info *info = (struct router_info *)p;
@@ -254,8 +254,8 @@ void interfacesWithIpv4Gateways(PIP_ADAPTER_ADDRESSES pCurrAddresses, void *p) {
     i = 0;
     pUnicast = pCurrAddresses->FirstUnicastAddress;
     while (pUnicast != NULL) {
-        printf("\t\tUnicast Addresses %d: %s\n", i, 
-            draft_inet_ntop(pUnicast->Address.lpSockaddr, s, sizeof(s)));
+        printf("\t\tUnicast Addresses %d: %wS\n", i, 
+            draft_inet_ntop(pUnicast->Address.lpSockaddr, s, ARRAYSIZE(s)));
         pUnicast = pUnicast->Next;
         ++i;
     }
