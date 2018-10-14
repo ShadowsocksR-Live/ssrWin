@@ -29,6 +29,7 @@ wchar_t * utf8_to_wchar_string(const char *str, wchar_t *receiver, size_t size) 
     if(ol < size_needed) {
         return NULL;
     }
+    ZeroMemory(receiver, size*sizeof(wchar_t));
     MultiByteToWideChar(CP_UTF8, 0, str, ol, receiver, size_needed);
     return receiver;
 }
@@ -46,7 +47,7 @@ const wchar_t * draft_inet_ntop(struct sockaddr *sa, wchar_t *buf, size_t size) 
 int internal_loopback_interface_index(int family) {
     unsigned char buf[sizeof(struct sockaddr_in6)] = { 0 };
     //struct sockaddr_in6 in6 = { AF_INET6 };
-    DWORD dwBestIfIndex;
+    DWORD dwBestIfIndex = 0;
     if (AF_INET6 == family) {
         struct sockaddr_in6 *in6 = (struct sockaddr_in6 *)buf;
         in6->sin6_family = AF_INET6;

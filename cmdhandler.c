@@ -232,7 +232,7 @@ int start_routing_ipv6(void) {
 }
 
 void build_response(int code, const char *msg, char *out_buf, size_t size) {
-    sprintf(out_buf, "{ statusCode: %d, errorMessage: \"%s\" }", code, msg);
+    sprintf(out_buf, "{ \"statusCode\": %d, \"errorMessage\": \"%s\" }", code, msg);
 }
 
 int run_command(const wchar_t *cmd, const wchar_t *args) {
@@ -308,6 +308,7 @@ BOOL pick_live_adapter(PIP_ADAPTER_ADDRESSES pCurrAddresses, void *p) {
         ++i;
         if (gateway->Address.lpSockaddr->sa_family == AF_INET) {
             interfacesWithIpv4Gateways(pCurrAddresses, p);
+            return FALSE;
         }
         gateway = gateway->Next;
     }
