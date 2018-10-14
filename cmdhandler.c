@@ -94,7 +94,8 @@ int handle_request(struct service_request *request) {
         result = configure_routing(request->routerIp, request->proxyIp, request->isAutoConnnect);
     }
     if (strcmp(request->action, s_resetRouting) == 0) {
-        result = reset_routing(NULL, NULL);
+        result = reset_routing(g_router_inst.proxyIp, g_router_inst.gatewayInterfaceName);
+        ZeroMemory(&g_router_inst, sizeof(g_router_inst));
     }
     return result;
 }
@@ -139,9 +140,6 @@ int reset_routing(const wchar_t *proxyIp, const wchar_t *proxyInterfaceName) {
     } else {
         // log("cannot remove route to proxy server, have not previously set")
     }
-
-    ZeroMemory(&g_router_inst, sizeof(g_router_inst));
-
     remove_ipv4_redirect();
     start_routing_ipv6();
     return 0;
