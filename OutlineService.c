@@ -198,7 +198,14 @@ BOOL outline_svc_message(const BYTE *msg, size_t msg_size, BYTE *result, size_t 
     *result_size = size;
 #else
     struct service_request request = { 0 };
+    size_t size = *result_size;
+    enum error_code code = e_c_success;
     parse_request((char *)msg, &request);
+    if (handle_request(&request) != 0) {
+        code = e_c_genericFailure;
+    }
+    build_response(code, "", (char *)result, size);
+    *result_size = lstrlenA((char *)result);
 #endif
     return TRUE;
 }

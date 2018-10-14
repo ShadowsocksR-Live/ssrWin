@@ -43,6 +43,33 @@ const wchar_t * draft_inet_ntop(struct sockaddr *sa, wchar_t *buf, size_t size) 
     return InetNtopW(sa->sa_family, pAddr, buf, size);
 }
 
+int internal_loopback_interface_index(int family) {
+    unsigned char buf[sizeof(struct sockaddr_in6)] = { 0 };
+    //struct sockaddr_in6 in6 = { AF_INET6 };
+    DWORD dwBestIfIndex;
+    if (AF_INET6 == family) {
+        struct sockaddr_in6 *in6 = (struct sockaddr_in6 *)buf;
+        in6->sin6_family = AF_INET6;
+        inet_pton(AF_INET6, "::1", &in6->sin6_addr); // InetPtonW
+    } else {
+        struct sockaddr_in *in4 = (struct sockaddr_in *)buf;
+        in4->sin_family = AF_INET;
+        inet_pton(AF_INET, "127.0.0.1", &in4->sin_addr);
+    }
+    if (NO_ERROR != GetBestInterfaceEx((struct sockaddr *)buf, &dwBestIfIndex)) {
+        return -1;
+    }
+    return (int) dwBestIfIndex;
+}
+
+int LoopbackInterfaceIndex(void) {
+    return internal_loopback_interface_index(AF_INET);
+}
+
+int IPv6LoopbackInterfaceIndex(void) {
+    return internal_loopback_interface_index(AF_INET6);
+}
+
 void enum_adapter_info(ULONG family, fn_iterate_adapter pfn, void *p) {
     DWORD dwSize = 0;
     DWORD dwRetVal = 0;

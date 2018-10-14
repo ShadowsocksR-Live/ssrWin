@@ -33,6 +33,7 @@ struct service_response {
 };
 
 void parse_request(const char *json, struct service_request *request);
+int handle_request(struct service_request *request);
 void build_response(int code, const char *msg, char *out_buf, size_t size);
 
 #endif // __CMD_HANDLER_H__

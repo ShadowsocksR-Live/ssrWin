@@ -30,13 +30,16 @@ struct router_info g_router_inst = { 0 };
 
 BOOL pick_live_adapter(PIP_ADAPTER_ADDRESSES pCurrAddresses, void *p);
 
-void configure_routing(const char *routerIp, const char *proxyIp, int isAutoConnect);
-void reset_routing(const wchar_t *proxyIp, const wchar_t *proxyInterfaceName);
+int configure_routing(const char *routerIp, const char *proxyIp, int isAutoConnect);
+int reset_routing(const wchar_t *proxyIp, const wchar_t *proxyInterfaceName);
 int run_command_wrapper(const wchar_t *cmd, const wchar_t *argv_fmt, ...);
 int delete_proxy_route(const wchar_t *proxyIp, const wchar_t *proxyInterfaceName);
 void set_gateway_properties(const wchar_t *p);
-void remove_ipv4_redirect(void);
-void start_routing_ipv6(void);
+int add_proxy_route(struct router_info *router);
+int add_ipv4_redirect(const wchar_t *routerIp);
+int stop_routing_ipv6(void);
+int remove_ipv4_redirect(void);
+int start_routing_ipv6(void);
 int run_command(const wchar_t *cmd, const wchar_t *args);
 
 static void process_json_generic(struct json_object* value, struct service_request *request) {
@@ -85,40 +88,63 @@ void parse_request(const char *json, struct service_request *request) {
     }
 }
 
-void handle_request(struct service_request *request) {
+int handle_request(struct service_request *request) {
+    int result = -1;
     if (strcmp(request->action, s_configureRouting) == 0) {
-        configure_routing(request->routerIp, request->proxyIp, request->isAutoConnnect);
+        result = configure_routing(request->routerIp, request->proxyIp, request->isAutoConnnect);
     }
     if (strcmp(request->action, s_resetRouting) == 0) {
-        reset_routing(NULL, NULL);
+        result = reset_routing(NULL, NULL);
     }
+    return result;
 }
 
-void configure_routing(const char *routerIp, const char *proxyIp, int isAutoConnect) {
-    wchar_t tmp[MAX_PATH] = { 0 };
-    if (routerIp==NULL || strlen(routerIp)==0 || proxyIp==NULL || strlen(proxyIp)==0) {
-        return;
-    }
-    run_command_wrapper(CMD_NETSH, L"interface ip set interface %s metric=0", TAP_DEVICE_NAME);
+int configure_routing(const char *routerIp, const char *proxyIp, int isAutoConnect) {
+    int result = -1;
+    do {
+        wchar_t tmp[MAX_PATH] = { 0 };
+        if (routerIp==NULL || strlen(routerIp)==0 || proxyIp==NULL || strlen(proxyIp)==0) {
+            break;
+        }
+        result = run_command_wrapper(CMD_NETSH, L"interface ip set interface %s metric=0", TAP_DEVICE_NAME);
+        if (result != 0) {
+            break;
+        }
 
-    enum_adapter_info(AF_UNSPEC, pick_live_adapter, &g_router_inst);
+        enum_adapter_info(AF_UNSPEC, pick_live_adapter, &g_router_inst);
 
-    lstrcpyW(g_router_inst.proxyIp, utf8_to_wchar_string(proxyIp, tmp, ARRAYSIZE(tmp)));
-    lstrcpyW(g_router_inst.routerIp, utf8_to_wchar_string(routerIp, tmp, ARRAYSIZE(tmp)));
+        lstrcpyW(g_router_inst.proxyIp, utf8_to_wchar_string(proxyIp, tmp, ARRAYSIZE(tmp)));
+        lstrcpyW(g_router_inst.routerIp, utf8_to_wchar_string(routerIp, tmp, ARRAYSIZE(tmp)));
+
+        if (lstrlenW(g_router_inst.gatewayIp) != 0) {
+            if ((result = add_proxy_route(&g_router_inst)) != 0) {
+                break;
+            }
+            if ((result = add_ipv4_redirect(g_router_inst.routerIp)) != 0) {
+                break;
+            }
+        }
+        if ((result = stop_routing_ipv6()) != 0) {
+            break;
+        }
+    } while (0);
+    return result;
 }
 
-void reset_routing(const wchar_t *proxyIp, const wchar_t *proxyInterfaceName) {
+int reset_routing(const wchar_t *proxyIp, const wchar_t *proxyInterfaceName) {
     if (proxyIp && lstrlenW(proxyIp)) {
-        if (delete_proxy_route(proxyIp, proxyInterfaceName) == 0) {
+        if (delete_proxy_route(proxyIp, proxyInterfaceName) != 0) {
             // log("failed to remove route to the proxy server: {e.Message}")
         }
     } else {
         // log("cannot remove route to proxy server, have not previously set")
     }
-    set_gateway_properties(NULL);
+
+    ZeroMemory(&g_router_inst, sizeof(g_router_inst));
 
     remove_ipv4_redirect();
     start_routing_ipv6();
+    return 0;
 }
 
 int run_command_wrapper(const wchar_t *cmd, const wchar_t *argv_fmt, ...) {
@@ -130,18 +156,81 @@ int run_command_wrapper(const wchar_t *cmd, const wchar_t *argv_fmt, ...) {
     return run_command(cmd, buffer);
 }
 
+void set_gateway_properties(const wchar_t *p) {
+}
+
+int add_proxy_route(struct router_info *router) {
+    const wchar_t *fmt1 = L"interface ipv4 add route %s/32 nexthop=%s interface=\"%s\" metric=0";
+    const wchar_t *fmt2 = L"interface ipv4 set route %s/32 nexthop=%s interface=\"%s\" metric=0";
+    int result = run_command_wrapper(CMD_NETSH, fmt1, 
+        router->proxyIp, router->gatewayIp, router->gatewayInterfaceName);
+    if (result != 0) {
+        result = run_command_wrapper(CMD_NETSH, fmt2, 
+            router->proxyIp, router->gatewayIp, router->gatewayInterfaceName);
+    }
+    return result;
+}
+
 int delete_proxy_route(const wchar_t *proxyIp, const wchar_t *proxyInterfaceName) {
     static const wchar_t *fmt = L"interface ipv4 delete route %s/32 interface=\"%s\"";
     return run_command_wrapper(CMD_NETSH, fmt, proxyIp, proxyInterfaceName);
 }
 
-void set_gateway_properties(const wchar_t *p) {
+int add_ipv4_redirect(const wchar_t *routerIp) {
+    const wchar_t *fmt = L"interface ipv4 add route %s nexthop=%s interface=\"%s\" metric=0";
+    int result = 0;
+    int i = 0;
+    for (i=0; i<ARRAYSIZE(IPV4_SUBNETS); ++i) {
+        const wchar_t *subnet = IPV4_SUBNETS[i];
+        result = run_command_wrapper(CMD_NETSH, fmt, subnet, routerIp, TAP_DEVICE_NAME);
+        if (result != 0) {
+            // "could not change default gateway: {0}"
+            break;
+        }
+    }
+    return result;
 }
 
-void remove_ipv4_redirect(void) {
+int remove_ipv4_redirect(void) {
+    const wchar_t *fmt = L"interface ipv4 delete route %s interface=%s";
+    int i = 0;
+    int result = 0;
+    for (i=0; i<ARRAYSIZE(IPV4_SUBNETS); ++i) {
+        result = run_command_wrapper(CMD_NETSH, fmt, IPV4_SUBNETS[i], TAP_DEVICE_NAME);
+        if (result != 0) {
+            // "failed to remove {0}: {1}"
+            break;
+        }
+    }
+    return result;
 }
 
-void start_routing_ipv6(void) {
+int stop_routing_ipv6(void) {
+    const wchar_t *fmt = L"interface ipv6 add route %s interface=%d metric=0";
+    int result = 0;
+    int i = 0;
+    int index = IPv6LoopbackInterfaceIndex();
+    for (i=0; i<ARRAYSIZE(IPV6_SUBNETS); ++i) {
+        result = run_command_wrapper(CMD_NETSH, fmt, IPV6_SUBNETS[i], index);
+        if (result != 0) {
+            // "could not disable IPv6: {0}"
+            break;
+        }
+    }
+    return result;
+}
+
+int start_routing_ipv6(void) {
+    const wchar_t *fmt = L"interface ipv6 delete route %s interface=%d";
+    int result = 0, i = 0, index = IPv6LoopbackInterfaceIndex();
+    for (i=0; i<ARRAYSIZE(IPV6_SUBNETS); ++i) {
+        result = run_command_wrapper(CMD_NETSH, fmt, IPV6_SUBNETS[i], index);
+        if (result != 0) {
+            // "failed to remove {0}: {1}"
+            break;
+        }
+    }
+    return result;
 }
 
 void build_response(int code, const char *msg, char *out_buf, size_t size) {
@@ -242,14 +331,14 @@ void interfacesWithIpv4Gateways(PIP_ADAPTER_ADDRESSES pCurrAddresses, void *p) {
 
     lstrcpyW(info->gatewayInterfaceName, pCurrAddresses->FriendlyName);
 
-    printf("\tIfIndex (IPv4 interface): %u\n", pCurrAddresses->IfIndex);
-    printf("\tIpv6IfIndex (IPv6 interface): %u\n", pCurrAddresses->IfIndex);
-    printf("\tAdapter name: %s\n", pCurrAddresses->AdapterName);
-    printf("\tDescription: %wS\n", pCurrAddresses->Description);
-    printf("\tFriendly name: %wS\n", pCurrAddresses->FriendlyName);
-    printf("\tFlags: %ld\n", pCurrAddresses->Flags);
-
-    //draft_inet_ntop(gateWay->Address.lpSockaddr, s, sizeof(s));
+    gateway = pCurrAddresses->FirstGatewayAddress;
+    while (gateway) {
+        if (gateway->Address.lpSockaddr->sa_family == AF_INET) {
+            draft_inet_ntop(gateway->Address.lpSockaddr, s, ARRAYSIZE(s));
+            lstrcpyW(info->gatewayIp, s);
+        }
+        gateway = gateway->Next;
+    }
 
     i = 0;
     pUnicast = pCurrAddresses->FirstUnicastAddress;
