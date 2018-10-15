@@ -15,16 +15,16 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="OutlineService.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="json.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="cmdhandler.c">
+    <ClCompile Include="net_adapter_enum.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="net_adapter_enum.c">
+    <ClCompile Include="pipe_service.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="cmd_handler.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -32,10 +32,10 @@
     <ClInclude Include="json.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="cmdhandler.h">
+    <ClInclude Include="net_adapter_enum.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="net_adapter_enum.h">
+    <ClInclude Include="cmd_handler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cmdhandler.h"
+#include "cmd_handler.h"
 
 #pragma comment(linker, "/subsystem:\"windows\" /entry:\"mainCRTStartup\"") // no console window
 #pragma comment(lib, "Rpcrt4.lib")

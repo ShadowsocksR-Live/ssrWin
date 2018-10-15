@@ -10,7 +10,7 @@
 #include <stdarg.h>
 #include <assert.h>
 
-#include "cmdhandler.h"
+#include "cmd_handler.h"
 #include "json.h"
 
 #define CMD_BUFF_SIZE 128
