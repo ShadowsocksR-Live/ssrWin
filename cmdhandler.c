@@ -19,26 +19,27 @@ static const wchar_t *TAP_DEVICE_NAME = L"outline-tap0";
 static const wchar_t *CMD_NETSH = L"netsh";
 
 struct router_info {
+    wchar_t tapDeviceName[MAX_PATH/4];
     wchar_t proxyIp[MAX_PATH];
     wchar_t routerIp[MAX_PATH];
     wchar_t gatewayIp[MAX_PATH];
     wchar_t gatewayInterfaceName[MAX_PATH];
 };
 
-struct router_info g_router_inst = { 0 };
+struct router_info g_router_info = { 0 };
 
 
 void pick_live_adapter(int *stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, void *p);
 
 int configure_routing(const char *routerIp, const char *proxyIp, int isAutoConnect);
-int reset_routing(const wchar_t *proxyIp, const wchar_t *proxyInterfaceName);
+int reset_routing(const wchar_t *proxyIp, const wchar_t *proxyInterfaceName, const wchar_t *tapDeviceName);
 int run_command_wrapper(const wchar_t *cmd, const wchar_t *argv_fmt, ...);
 int delete_proxy_route(const wchar_t *proxyIp, const wchar_t *proxyInterfaceName);
 void set_gateway_properties(const wchar_t *p);
-int add_proxy_route(struct router_info *router);
-int add_ipv4_redirect(const wchar_t *routerIp);
+int add_proxy_route(const struct router_info *router);
+int add_ipv4_redirect(const struct router_info *router);
 int stop_routing_ipv6(void);
-int remove_ipv4_redirect(void);
+int remove_ipv4_redirect(const wchar_t *tapDeviceName);
 int start_routing_ipv6(void);
 int run_command(const wchar_t *cmd, const wchar_t *args);
 
@@ -107,8 +108,8 @@ int handle_request(struct service_request *request) {
         result = configure_routing(request->routerIp, request->proxyIp, request->isAutoConnnect);
     }
     if (strcmp(request->action, s_resetRouting) == 0) {
-        result = reset_routing(g_router_inst.proxyIp, g_router_inst.gatewayInterfaceName);
-        ZeroMemory(&g_router_inst, sizeof(g_router_inst));
+        result = reset_routing(g_router_info.proxyIp, g_router_info.gatewayInterfaceName, g_router_info.tapDeviceName);
+        ZeroMemory(&g_router_info, sizeof(g_router_info));
     }
     return result;
 }
@@ -120,21 +121,24 @@ int configure_routing(const char *routerIp, const char *proxyIp, int isAutoConne
         if (routerIp==NULL || strlen(routerIp)==0 || proxyIp==NULL || strlen(proxyIp)==0) {
             break;
         }
-        result = run_command_wrapper(CMD_NETSH, L"interface ip set interface %s metric=0", TAP_DEVICE_NAME);
+
+        enum_adapter_info(AF_UNSPEC, pick_live_adapter, &g_router_info);
+
+        lstrcpyW(g_router_info.tapDeviceName, TAP_DEVICE_NAME);
+
+        lstrcpyW(g_router_info.proxyIp, utf8_to_wchar_string(proxyIp, tmp, ARRAYSIZE(tmp)));
+        lstrcpyW(g_router_info.routerIp, utf8_to_wchar_string(routerIp, tmp, ARRAYSIZE(tmp)));
+
+        result = run_command_wrapper(CMD_NETSH, L"interface ip set interface %s metric=0", g_router_info.tapDeviceName);
         if (result != 0) {
             break;
         }
 
-        enum_adapter_info(AF_UNSPEC, pick_live_adapter, &g_router_inst);
-
-        lstrcpyW(g_router_inst.proxyIp, utf8_to_wchar_string(proxyIp, tmp, ARRAYSIZE(tmp)));
-        lstrcpyW(g_router_inst.routerIp, utf8_to_wchar_string(routerIp, tmp, ARRAYSIZE(tmp)));
-
-        if (lstrlenW(g_router_inst.gatewayIp) != 0) {
-            if ((result = add_proxy_route(&g_router_inst)) != 0) {
+        if (lstrlenW(g_router_info.gatewayIp) != 0) {
+            if ((result = add_proxy_route(&g_router_info)) != 0) {
                 break;
             }
-            if ((result = add_ipv4_redirect(g_router_inst.routerIp)) != 0) {
+            if ((result = add_ipv4_redirect(&g_router_info)) != 0) {
                 break;
             }
         }
@@ -145,7 +149,7 @@ int configure_routing(const char *routerIp, const char *proxyIp, int isAutoConne
     return result;
 }
 
-int reset_routing(const wchar_t *proxyIp, const wchar_t *proxyInterfaceName) {
+int reset_routing(const wchar_t *proxyIp, const wchar_t *proxyInterfaceName, const wchar_t *tapDeviceName) {
     if (proxyIp && lstrlenW(proxyIp)) {
         if (delete_proxy_route(proxyIp, proxyInterfaceName) != 0) {
             // log("failed to remove route to the proxy server: {e.Message}")
@@ -153,7 +157,7 @@ int reset_routing(const wchar_t *proxyIp, const wchar_t *proxyInterfaceName) {
     } else {
         // log("cannot remove route to proxy server, have not previously set")
     }
-    remove_ipv4_redirect();
+    remove_ipv4_redirect(tapDeviceName);
     start_routing_ipv6();
     return 0;
 }
@@ -170,7 +174,7 @@ int run_command_wrapper(const wchar_t *cmd, const wchar_t *argv_fmt, ...) {
 void set_gateway_properties(const wchar_t *p) {
 }
 
-int add_proxy_route(struct router_info *router) {
+int add_proxy_route(const struct router_info *router) {
     const wchar_t *fmt1 = L"interface ipv4 add route %s/32 nexthop=%s interface=\"%s\" metric=0";
     const wchar_t *fmt2 = L"interface ipv4 set route %s/32 nexthop=%s interface=\"%s\" metric=0";
     int result = run_command_wrapper(CMD_NETSH, fmt1, 
@@ -187,13 +191,13 @@ int delete_proxy_route(const wchar_t *proxyIp, const wchar_t *proxyInterfaceName
     return run_command_wrapper(CMD_NETSH, fmt, proxyIp, proxyInterfaceName);
 }
 
-int add_ipv4_redirect(const wchar_t *routerIp) {
+int add_ipv4_redirect(const struct router_info *router) {
     const wchar_t *fmt = L"interface ipv4 add route %s nexthop=%s interface=\"%s\" metric=0";
     int result = 0;
     int i = 0;
     for (i=0; i<ARRAYSIZE(IPV4_SUBNETS); ++i) {
         const wchar_t *subnet = IPV4_SUBNETS[i];
-        result = run_command_wrapper(CMD_NETSH, fmt, subnet, routerIp, TAP_DEVICE_NAME);
+        result = run_command_wrapper(CMD_NETSH, fmt, subnet, router->routerIp, router->tapDeviceName);
         if (result != 0) {
             // "could not change default gateway: {0}"
             break;
@@ -202,12 +206,12 @@ int add_ipv4_redirect(const wchar_t *routerIp) {
     return result;
 }
 
-int remove_ipv4_redirect(void) {
+int remove_ipv4_redirect(const wchar_t *tapDeviceName) {
     const wchar_t *fmt = L"interface ipv4 delete route %s interface=%s";
     int i = 0;
     int result = 0;
     for (i=0; i<ARRAYSIZE(IPV4_SUBNETS); ++i) {
-        result = run_command_wrapper(CMD_NETSH, fmt, IPV4_SUBNETS[i], TAP_DEVICE_NAME);
+        result = run_command_wrapper(CMD_NETSH, fmt, IPV4_SUBNETS[i], tapDeviceName);
         if (result != 0) {
             // "failed to remove {0}: {1}"
             break;
@@ -302,13 +306,14 @@ int run_command(const wchar_t *cmd, const wchar_t *args) {
 void interfacesWithIpv4Gateways(PIP_ADAPTER_ADDRESSES pAddresses, void *p);
 
 void pick_live_adapter(int *stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, void *p) {
+    struct router_info *info = (struct router_info *)p;
     unsigned int i = 0;
     PIP_ADAPTER_GATEWAY_ADDRESS_LH gateway = NULL;
 
     if (pCurrAddresses->IfType==IF_TYPE_SOFTWARE_LOOPBACK) {
         return;
     }
-    if (lstrcmpW(pCurrAddresses->FriendlyName, TAP_DEVICE_NAME) == 0) {
+    if (lstrcmpW(pCurrAddresses->FriendlyName, info->tapDeviceName) == 0) {
         return;
     }
     if (pCurrAddresses->OperStatus != IfOperStatusUp) {
