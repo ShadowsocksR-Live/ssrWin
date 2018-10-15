@@ -13,9 +13,42 @@
 #include "cmdhandler.h"
 #include "json.h"
 
+#define CMD_BUFF_SIZE 128
+
+#define s_action "action"
+#define s_configureRouting "configureRouting"
+#define s_resetRouting "resetRouting"
+#define s_parameters "parameters"
+#define s_proxyIp "proxyIp"
+#define s_routerIp "routerIp"
+#define s_isAutoConnnect "isAutoConnnect"
+#define s_statusCode "statusCode"
+#define s_errorMessage "errorMessage"
+
+struct service_request {
+    char action[CMD_BUFF_SIZE];
+    char proxyIp[CMD_BUFF_SIZE];
+    char routerIp[CMD_BUFF_SIZE];
+    int isAutoConnnect;
+};
+
+enum error_code {
+    e_c_success = 0,
+    e_c_genericFailure = 1,
+    e_c_unsupported_routing_table = 2
+};
+
+struct service_response {
+    enum error_code statusCode;
+    char errorMessage[CMD_BUFF_SIZE];
+};
+
+void parse_request(const char *json, struct service_request *request);
+int handle_request(struct service_request *request);
+void build_response(int code, const char *msg, char *out_buf, size_t size);
+
 static const wchar_t *IPV4_SUBNETS[] = { L"0.0.0.0/1", L"128.0.0.0/1" };
 static const wchar_t *IPV6_SUBNETS[] = { L"fc00::/7", L"2000::/4", L"3000::/4" };
-static const wchar_t *TAP_DEVICE_NAME = L"outline-tap0";
 static const wchar_t *CMD_NETSH = L"netsh";
 
 struct router_info {

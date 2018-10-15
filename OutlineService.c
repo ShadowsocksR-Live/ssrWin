@@ -4,9 +4,6 @@
 
 #include "cmdhandler.h"
 
-#define SVC_NAME "OutlineService"
-#define PIPE_NAME "OutlineServicePipe"
-
 #pragma comment(linker, "/subsystem:\"windows\" /entry:\"mainCRTStartup\"") // no console window
 #pragma comment(lib, "Rpcrt4.lib")
 
