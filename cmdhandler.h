@@ -32,6 +32,8 @@ struct service_response {
     char errorMessage[CMD_BUFF_SIZE];
 };
 
+BOOL svc_message_handler(const BYTE *msg, size_t msg_size, BYTE *result, size_t *result_size, void *p);
+
 void parse_request(const char *json, struct service_request *request);
 int handle_request(struct service_request *request);
 void build_response(int code, const char *msg, char *out_buf, size_t size);

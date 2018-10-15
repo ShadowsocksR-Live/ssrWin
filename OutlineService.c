@@ -191,27 +191,17 @@ DWORD __stdcall client_thread(LPVOID lpvParam) {
 //////////////////////////////////////////////////////////////////////////
 // outline service
 
-BOOL outline_svc_message(const BYTE *msg, size_t msg_size, BYTE *result, size_t *result_size, void *p) {
 #if 0
+BOOL svc_message_handler(const BYTE *msg, size_t msg_size, BYTE *result, size_t *result_size, void *p) {
     size_t size = min(msg_size, *result_size);
     memmove(result, msg, size);
     *result_size = size;
-#else
-    struct service_request request = { 0 };
-    size_t size = *result_size;
-    enum error_code code = e_c_success;
-    parse_request((char *)msg, &request);
-    if (handle_request(&request) != 0) {
-        code = e_c_genericFailure;
-    }
-    build_response(code, "", (char *)result, size);
-    *result_size = lstrlenA((char *)result);
-#endif
     return TRUE;
 }
+#endif
 
-DWORD __stdcall outline_msg_server_thread(LPVOID lpvParam) {
-    pipe_infinite_loop(outline_svc_message, lpvParam);
+DWORD __stdcall pipe_msg_server_thread(LPVOID lpvParam) {
+    pipe_infinite_loop(svc_message_handler, lpvParam);
     return 0;
 }
 
@@ -302,7 +292,7 @@ void __stdcall service_main(DWORD argc, char** argv) {
     _service_status.dwCurrentState = SERVICE_RUNNING;
     SetServiceStatus(_service_status_handle, &_service_status);
 
-    msg_thread = CreateThread(NULL, 0, outline_msg_server_thread, NULL, 0, &dwThreadId);
+    msg_thread = CreateThread(NULL, 0, pipe_msg_server_thread, NULL, 0, &dwThreadId);
     if (msg_thread==INVALID_HANDLE_VALUE || msg_thread==NULL) {
         _service_status.dwCurrentState = SERVICE_STOPPED;
         _service_status.dwWin32ExitCode = -1;
