@@ -189,7 +189,7 @@ DWORD __stdcall client_thread(LPVOID lpvParam) {
 }
 
 //////////////////////////////////////////////////////////////////////////
-// outline service
+// service implementation
 
 #if 0
 BOOL svc_message_handler(const BYTE *msg, size_t msg_size, BYTE *result, size_t *result_size, void *p) {

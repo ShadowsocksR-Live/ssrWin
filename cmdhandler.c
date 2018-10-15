@@ -28,7 +28,7 @@ struct router_info {
 struct router_info g_router_inst = { 0 };
 
 
-BOOL pick_live_adapter(PIP_ADAPTER_ADDRESSES pCurrAddresses, void *p);
+void pick_live_adapter(int *stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, void *p);
 
 int configure_routing(const char *routerIp, const char *proxyIp, int isAutoConnect);
 int reset_routing(const wchar_t *proxyIp, const wchar_t *proxyInterfaceName);
@@ -301,18 +301,18 @@ int run_command(const wchar_t *cmd, const wchar_t *args) {
 
 void interfacesWithIpv4Gateways(PIP_ADAPTER_ADDRESSES pAddresses, void *p);
 
-BOOL pick_live_adapter(PIP_ADAPTER_ADDRESSES pCurrAddresses, void *p) {
+void pick_live_adapter(int *stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, void *p) {
     unsigned int i = 0;
     PIP_ADAPTER_GATEWAY_ADDRESS_LH gateway = NULL;
 
     if (pCurrAddresses->IfType==IF_TYPE_SOFTWARE_LOOPBACK) {
-        return TRUE;
+        return;
     }
     if (lstrcmpW(pCurrAddresses->FriendlyName, TAP_DEVICE_NAME) == 0) {
-        return TRUE;
+        return;
     }
     if (pCurrAddresses->OperStatus != IfOperStatusUp) {
-        return TRUE;
+        return;
     }
 
     i = 0;
@@ -321,12 +321,11 @@ BOOL pick_live_adapter(PIP_ADAPTER_ADDRESSES pCurrAddresses, void *p) {
         ++i;
         if (gateway->Address.lpSockaddr->sa_family == AF_INET) {
             interfacesWithIpv4Gateways(pCurrAddresses, p);
-            return FALSE;
+            if (stop) { *stop = TRUE; }
+            return;
         }
         gateway = gateway->Next;
     }
-
-    return TRUE;
 }
 
 void interfacesWithIpv4Gateways(PIP_ADAPTER_ADDRESSES pCurrAddresses, void *p) {

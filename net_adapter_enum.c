@@ -19,6 +19,7 @@ char * wchar_string_to_utf8(const wchar_t *wstr, char *receiver, size_t size) {
     if ((int)size < size_needed) {
         return NULL;
     }
+    ZeroMemory(receiver, size*sizeof(char));
     WideCharToMultiByte(CP_UTF8, 0, wstr, ol, receiver, size_needed, NULL, NULL);
     return receiver;
 }
@@ -118,9 +119,9 @@ void enum_adapter_info(ULONG family, fn_iterate_adapter pfn, void *p) {
         // If successful, output some information from the data we received
         pCurrAddresses = pAddresses;
         while (pCurrAddresses) {
-            if (pfn(pCurrAddresses, p) == FALSE) {
-                break;
-            }
+            int stop = 0;
+            pfn(&stop, pCurrAddresses, p);
+            if (stop != 0) { break; }
             pCurrAddresses = pCurrAddresses->Next;
         }
     } else {
