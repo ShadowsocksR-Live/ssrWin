@@ -141,8 +141,9 @@ int handle_request(struct service_request *request) {
         result = configure_routing(request->routerIp, request->proxyIp, request->isAutoConnnect);
     }
     if (strcmp(request->action, s_resetRouting) == 0) {
-        result = reset_routing(g_router_info.proxyIp, g_router_info.gatewayInterfaceName, g_router_info.tapDeviceName);
-        ZeroMemory(&g_router_info, sizeof(g_router_info));
+        struct router_info *pInfo = &g_router_info;
+        result = reset_routing(pInfo->proxyIp, pInfo->gatewayInterfaceName, pInfo->tapDeviceName);
+        ZeroMemory(pInfo, sizeof(struct router_info));
     }
     return result;
 }
@@ -150,28 +151,30 @@ int handle_request(struct service_request *request) {
 int configure_routing(const char *routerIp, const char *proxyIp, int isAutoConnect) {
     int result = -1;
     do {
+        struct router_info *pInfo = &g_router_info;
+
         wchar_t tmp[MAX_PATH] = { 0 };
         if (routerIp==NULL || strlen(routerIp)==0 || proxyIp==NULL || strlen(proxyIp)==0) {
             break;
         }
 
-        enum_adapter_info(AF_UNSPEC, pick_live_adapter, &g_router_info);
+        enum_adapter_info(AF_UNSPEC, pick_live_adapter, pInfo);
 
-        lstrcpyW(g_router_info.tapDeviceName, TAP_DEVICE_NAME);
+        lstrcpyW(pInfo->tapDeviceName, TAP_DEVICE_NAME);
 
-        lstrcpyW(g_router_info.proxyIp, utf8_to_wchar_string(proxyIp, tmp, ARRAYSIZE(tmp)));
-        lstrcpyW(g_router_info.routerIp, utf8_to_wchar_string(routerIp, tmp, ARRAYSIZE(tmp)));
+        lstrcpyW(pInfo->proxyIp, utf8_to_wchar_string(proxyIp, tmp, ARRAYSIZE(tmp)));
+        lstrcpyW(pInfo->routerIp, utf8_to_wchar_string(routerIp, tmp, ARRAYSIZE(tmp)));
 
-        result = run_command_wrapper(CMD_NETSH, L"interface ip set interface %s metric=0", g_router_info.tapDeviceName);
+        result = run_command_wrapper(CMD_NETSH, L"interface ip set interface %s metric=0", pInfo->tapDeviceName);
         if (result != 0) {
             break;
         }
 
-        if (lstrlenW(g_router_info.gatewayIp) != 0) {
-            if ((result = add_proxy_route(&g_router_info)) != 0) {
+        if (lstrlenW(pInfo->gatewayIp) != 0) {
+            if ((result = add_proxy_route(pInfo)) != 0) {
                 break;
             }
-            if ((result = add_ipv4_redirect(&g_router_info)) != 0) {
+            if ((result = add_ipv4_redirect(pInfo)) != 0) {
                 break;
             }
         }
