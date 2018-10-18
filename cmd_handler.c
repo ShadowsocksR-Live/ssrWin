@@ -49,6 +49,13 @@ void build_response(int code, const char *msg, char *out_buf, size_t size);
 
 static const wchar_t *IPV4_SUBNETS[] = { L"0.0.0.0/1", L"128.0.0.0/1" };
 static const wchar_t *IPV6_SUBNETS[] = { L"fc00::/7", L"2000::/4", L"3000::/4" };
+static const wchar_t *IPV4_RESERVED_SUBNETS[] = {
+    L"0.0.0.0/8",       L"10.0.0.0/8",      L"100.64.0.0/10",   L"127.0.0.0/8",
+    L"169.254.0.0/16",  L"172.16.0.0/12",   L"192.0.0.0/24",    L"192.0.2.0/24",
+    L"192.31.196.0/24", L"192.52.193.0/24", L"192.88.99.0/24",  L"192.168.0.0/16",
+    L"192.175.48.0/24", L"198.18.0.0/15",   L"198.51.100.0/24", L"203.0.113.0/24",
+    L"240.0.0.0/4"
+};
 static const wchar_t *CMD_NETSH = L"netsh";
 
 struct router_info {
@@ -74,6 +81,8 @@ int add_ipv4_redirect(const struct router_info *router);
 int stop_routing_ipv6(void);
 int remove_ipv4_redirect(const wchar_t *tapDeviceName);
 int start_routing_ipv6(void);
+int add_reserved_subnet_bypass(const struct router_info *router);
+int remove_reserved_subnet_bypass(const wchar_t *interfaceName);
 int run_command(const wchar_t *cmd, const wchar_t *args);
 
 BOOL svc_message_handler(const BYTE *msg, size_t msg_size, BYTE *result, size_t *result_size, void *p) {
@@ -177,6 +186,7 @@ int configure_routing(const char *routerIp, const char *proxyIp, int isAutoConne
             if ((result = add_ipv4_redirect(pInfo)) != 0) {
                 break;
             }
+            add_reserved_subnet_bypass(pInfo);
         }
         if ((result = stop_routing_ipv6()) != 0) {
             break;
@@ -194,6 +204,7 @@ int reset_routing(const wchar_t *proxyIp, const wchar_t *proxyInterfaceName, con
         // log("cannot remove route to proxy server, have not previously set")
     }
     remove_ipv4_redirect(tapDeviceName);
+    remove_reserved_subnet_bypass(proxyInterfaceName);
     start_routing_ipv6();
     return 0;
 }
@@ -278,6 +289,32 @@ int start_routing_ipv6(void) {
         result = run_command_wrapper(CMD_NETSH, fmt, IPV6_SUBNETS[i], index);
         if (result != 0) {
             // "failed to remove {0}: {1}"
+            break;
+        }
+    }
+    return result;
+}
+
+// Routes reserved and private subnets through the default gateway so they bypass the VPN.
+int add_reserved_subnet_bypass(const struct router_info *router) {
+    const wchar_t *fmt = L"interface ipv4 add route %s nexthop=%s interface=\"%s\" metric=0";
+    int i, result = -1;
+    for (i=0; i<ARRAYSIZE(IPV4_RESERVED_SUBNETS); ++i) {
+        result = run_command_wrapper(CMD_NETSH, fmt, IPV4_RESERVED_SUBNETS[i], router->gatewayIp, router->gatewayInterfaceName);
+        if (result != 0) {
+            break;
+        }
+    }
+    return result;
+}
+
+// Removes reserved subnet routes created to bypass the VPN.
+int remove_reserved_subnet_bypass(const wchar_t *interfaceName) {
+    const wchar_t *fmt = L"interface ipv4 delete route %s interface=\"%s\"";
+    int i, result = -1;
+    for (i=0; i<ARRAYSIZE(IPV4_RESERVED_SUBNETS); ++i) {
+        result = run_command_wrapper(CMD_NETSH, fmt, IPV4_RESERVED_SUBNETS[i], interfaceName);
+        if (result != 0) {
             break;
         }
     }
