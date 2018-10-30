@@ -51,6 +51,7 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;DEBUG_ENABLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <AdditionalIncludeDirectories>..</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -67,6 +68,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <AdditionalIncludeDirectories>..</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -77,14 +79,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="cmd_handler.c" />
-    <ClCompile Include="json.c" />
-    <ClCompile Include="net_adapter_enum.c" />
+    <ClCompile Include="../json.c" />
+    <ClCompile Include="../net_adapter_enum.c" />
     <ClCompile Include="pipe_service.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cmd_handler.h" />
-    <ClInclude Include="json.h" />
-    <ClInclude Include="net_adapter_enum.h" />
+    <ClInclude Include="../json.h" />
+    <ClInclude Include="../net_adapter_enum.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

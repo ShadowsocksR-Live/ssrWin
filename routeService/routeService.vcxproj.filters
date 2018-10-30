@@ -15,10 +15,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="json.c">
+    <ClCompile Include="../json.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="net_adapter_enum.c">
+    <ClCompile Include="../net_adapter_enum.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="pipe_service.c">
@@ -29,10 +29,10 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="json.h">
+    <ClInclude Include="../json.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="net_adapter_enum.h">
+    <ClInclude Include="../net_adapter_enum.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="cmd_handler.h">
