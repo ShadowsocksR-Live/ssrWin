@@ -1,7 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "routeService", "routeService/routeService.vcxproj", "{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "routeService", "routeService\routeService.vcxproj", "{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ssrWin", "ssrWin\ssrWin.vcxproj", "{78E82813-DC2F-402E-9494-9C2844CD8641}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -13,6 +15,10 @@ Global
 		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Debug|Win32.Build.0 = Debug|Win32
 		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Release|Win32.ActiveCfg = Release|Win32
 		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Release|Win32.Build.0 = Release|Win32
+		{78E82813-DC2F-402E-9494-9C2844CD8641}.Debug|Win32.ActiveCfg = Debug|Win32
+		{78E82813-DC2F-402E-9494-9C2844CD8641}.Debug|Win32.Build.0 = Debug|Win32
+		{78E82813-DC2F-402E-9494-9C2844CD8641}.Release|Win32.ActiveCfg = Release|Win32
+		{78E82813-DC2F-402E-9494-9C2844CD8641}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
