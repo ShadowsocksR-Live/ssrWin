@@ -24,7 +24,10 @@
     <ClCompile Include="pipe_service.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="cmd_handler.c">
+    <ClCompile Include="../cmd_handler.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\comm_with_named_pipe.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -35,7 +38,10 @@
     <ClInclude Include="../net_adapter_enum.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="cmd_handler.h">
+    <ClInclude Include="../cmd_handler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\comm_with_named_pipe.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

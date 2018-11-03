@@ -78,15 +78,17 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="cmd_handler.c" />
+    <ClCompile Include="../cmd_handler.c" />
     <ClCompile Include="../json.c" />
     <ClCompile Include="../net_adapter_enum.c" />
+    <ClCompile Include="..\comm_with_named_pipe.c" />
     <ClCompile Include="pipe_service.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="cmd_handler.h" />
+    <ClInclude Include="../cmd_handler.h" />
     <ClInclude Include="../json.h" />
     <ClInclude Include="../net_adapter_enum.h" />
+    <ClInclude Include="..\comm_with_named_pipe.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
