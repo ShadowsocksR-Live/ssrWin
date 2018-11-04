@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "cmd_handler.h"
+#include "comm_with_named_pipe.h"
 
 #pragma comment(linker, "/subsystem:\"windows\" /entry:\"mainCRTStartup\"") // no console window
 #pragma comment(lib, "Rpcrt4.lib")
@@ -54,29 +55,12 @@ void guid_generator(char *guid_str, size_t size) {
 }
 
 void pipe_exit_loop(const char *pipe_name) {
-    HANDLE handle;
-    DWORD done_size;
     char buffer[MAX_PATH] = { 0 };
 
     pipe_exit_flag = TRUE;
 
-    sprintf(buffer, "\\\\.\\Pipe\\%s", pipe_name);
-    if (WaitNamedPipeA(buffer, NMPWAIT_WAIT_FOREVER) == 0) {
-        sprintf(buffer, "WaitNamedPipe failed with error %d\n", GetLastError());
-        write_to_log(buffer);
-        return;
-    }
-
-    // Open the named pipe file handle
-    handle = CreateFileA(buffer, GENERIC_READ|GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (handle == INVALID_HANDLE_VALUE) {
-        sprintf(buffer, "CreateFile failed with error %d\n", GetLastError());
-        write_to_log(buffer);
-        return;
-    }
     guid_generator(buffer, sizeof(buffer));
-    WriteFile(handle, buffer, strlen(buffer) + 1, &done_size, NULL);
-    CloseHandle(handle);
+    comm_with_named_pipe(pipe_name, (uint8_t *)buffer, sizeof(buffer), 0, NULL, NULL);
 }
 
 typedef BOOL(*fn_process_message)(const BYTE *msg, size_t msg_size, BYTE *result, size_t *result_size, void *p);
