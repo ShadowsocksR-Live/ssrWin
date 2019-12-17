@@ -54,8 +54,8 @@
    Class = Net
 
 ; This version number should match the version
-; number given in SOURCES.
-   DriverVer=04/21/2016,9.00.00.21
+; number given in ..\version.m4.
+   DriverVer = 04/16/2019,9.23.1.601
 
 [Strings]
    DeviceDescription = "TAP-Windows Adapter V9"
@@ -65,9 +65,9 @@
 ;                      Manufacturer + Product Section (Done)
 ;----------------------------------------------------------------
 [Manufacturer]
-   %Provider% = tap0901
+   %Provider% = tap0901, NTx86
 
-[tap0901]
+[tap0901.NTx86]
    %DeviceDescription% = tap0901.ndi, root\tap0901 ; Root enumerated
    %DeviceDescription% = tap0901.ndi, tap0901      ; Legacy
 
@@ -88,7 +88,7 @@
    CopyFiles       = tap0901.driver, tap0901.files
    AddReg          = tap0901.reg
    AddReg          = tap0901.params.reg
-   Characteristics = 
+   Characteristics = 0x81
    *IfType            = 0x6 ; IF_TYPE_ETHERNET_CSMACD
    *MediaType         = 0x0 ; NdisMedium802_3
    *PhysicalMediaType = 14  ; NdisPhysicalMedium802_3
