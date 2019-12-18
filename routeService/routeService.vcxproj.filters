@@ -30,6 +30,9 @@
     <ClCompile Include="..\comm_with_named_pipe.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\smartdnsblock.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="../json.h">
@@ -42,6 +45,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\comm_with_named_pipe.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\smartdnsblock.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

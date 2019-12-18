@@ -12,6 +12,7 @@
 
 #include "cmd_handler.h"
 #include "json.h"
+#include "smartdnsblock.h"
 
 #define CMD_BUFF_SIZE 128
 
@@ -161,8 +162,10 @@ int configure_routing(const char *routerIp, const char *proxyIp, int isAutoConne
     int result = -1;
     do {
         struct router_info *pInfo = &g_router_info;
-
         wchar_t tmp[MAX_PATH] = { 0 };
+
+        begin_smart_dns_block(TAP_DEVICE_NAME, FILTER_PROVIDER_NAME);
+
         if (routerIp==NULL || strlen(routerIp)==0 || proxyIp==NULL || strlen(proxyIp)==0) {
             break;
         }
@@ -206,6 +209,9 @@ int reset_routing(const wchar_t *proxyIp, const wchar_t *proxyInterfaceName, con
     remove_ipv4_redirect(tapDeviceName);
     remove_reserved_subnet_bypass(proxyInterfaceName);
     start_routing_ipv6();
+
+    end_smart_dns_block();
+
     return 0;
 }
 
