@@ -364,6 +364,7 @@ int run_command(const wchar_t *cmd, const wchar_t *args) {
         ) 
     {
         wprintf( L"CreateProcess failed (%d).\n", GetLastError() );
+        free(buffer);
         return -1;
     }
 

@@ -130,12 +130,11 @@ void enum_adapter_info(ULONG family, fn_iterate_adapter pfn, void *p) {
             printf("\tNo addresses were found for the requested parameters\n");
         } else {
             LPVOID lpMsgBuf = NULL;
-            if (FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, 
-                NULL, dwRetVal, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                (char *) & lpMsgBuf, 0, NULL)) {
-                    printf("\tError: %s", (char *)lpMsgBuf);
-                    LocalFree(lpMsgBuf);
+            DWORD flags = FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS;
+            DWORD languageId = MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT);
+            if (FormatMessageA(flags, NULL, dwRetVal, languageId, (char *) & lpMsgBuf, 0, NULL)) {
+                printf("\tError: %s", (char *)lpMsgBuf);
+                LocalFree(lpMsgBuf);
             }
         }
     }

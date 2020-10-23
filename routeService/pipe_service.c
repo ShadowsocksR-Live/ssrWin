@@ -73,7 +73,7 @@ struct pipe_cxt {
 
 DWORD __stdcall client_thread(LPVOID lpvParam);
 
-void pipe_infinite_loop(fn_process_message process_message, void *p) {
+void pipe_infinite_loop(const char* pipe_name, fn_process_message process_message, void *p) {
     if (process_message==NULL) {
         return;
     }
@@ -86,7 +86,7 @@ void pipe_infinite_loop(fn_process_message process_message, void *p) {
         char buffer[MAX_PATH] = { 0 };
         HANDLE pipe = NULL;
 
-        pipe = pipe_create(PIPE_NAME);
+        pipe = pipe_create(pipe_name);
         if (pipe==NULL || pipe==INVALID_HANDLE_VALUE) {
             break;
         }
@@ -182,7 +182,8 @@ BOOL svc_message_handler(const BYTE *msg, size_t msg_size, BYTE *result, size_t 
 #endif
 
 DWORD __stdcall pipe_msg_server_thread(LPVOID lpvParam) {
-    pipe_infinite_loop(svc_message_handler, lpvParam);
+    const char* pipe_name = (const char*)lpvParam;
+    pipe_infinite_loop(pipe_name, svc_message_handler, NULL);
     return 0;
 }
 
@@ -242,9 +243,10 @@ void run_message_loop(void) {
 void __stdcall service_main(DWORD argc, char** argv) {
     int error;
     HANDLE msg_thread;
-    DWORD dwThreadId;
+    DWORD dwThreadId = 0;
+    const char* pipe_name = PIPE_NAME;
 
-    _thread_id = GetCurrentThreadId();			
+    _thread_id = GetCurrentThreadId();
 
     _service_status.dwServiceType = SERVICE_WIN32;
     _service_status.dwCurrentState = SERVICE_START_PENDING;
@@ -273,7 +275,7 @@ void __stdcall service_main(DWORD argc, char** argv) {
     _service_status.dwCurrentState = SERVICE_RUNNING;
     SetServiceStatus(_service_status_handle, &_service_status);
 
-    msg_thread = CreateThread(NULL, 0, pipe_msg_server_thread, NULL, 0, &dwThreadId);
+    msg_thread = CreateThread(NULL, 0, pipe_msg_server_thread, (LPVOID)pipe_name, 0, &dwThreadId);
     if (msg_thread==INVALID_HANDLE_VALUE || msg_thread==NULL) {
         _service_status.dwCurrentState = SERVICE_STOPPED;
         _service_status.dwWin32ExitCode = -1;
@@ -283,7 +285,7 @@ void __stdcall service_main(DWORD argc, char** argv) {
 
     run_message_loop();
 
-    pipe_exit_loop(PIPE_NAME);
+    pipe_exit_loop(pipe_name);
     WaitForSingleObject(msg_thread, INFINITE);
     CloseHandle(msg_thread);
 
