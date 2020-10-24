@@ -1,8 +1,8 @@
-#include <winsock2.h>
 #include <WS2tcpip.h>
 #include <iphlpapi.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <winsock2.h>
 
 #include "net_adapter_enum.h"
 
@@ -13,30 +13,33 @@
 #define WORKING_BUFFER_SIZE 15000
 #define MAX_TRIES 3
 
-char * wchar_string_to_utf8(const wchar_t *wstr, char *receiver, size_t size) {
+char* wchar_string_to_utf8(const wchar_t* wstr, char* receiver, size_t size)
+{
     int ol = lstrlenW(wstr);
     int size_needed = WideCharToMultiByte(CP_UTF8, 0, wstr, ol, NULL, 0, NULL, NULL);
     if ((int)size < size_needed) {
         return NULL;
     }
-    ZeroMemory(receiver, size*sizeof(char));
+    ZeroMemory(receiver, size * sizeof(char));
     WideCharToMultiByte(CP_UTF8, 0, wstr, ol, receiver, size_needed, NULL, NULL);
     return receiver;
 }
 
-wchar_t * utf8_to_wchar_string(const char *str, wchar_t *receiver, size_t size) {
+wchar_t* utf8_to_wchar_string(const char* str, wchar_t* receiver, size_t size)
+{
     int ol = lstrlenA(str);
     int size_needed = MultiByteToWideChar(CP_UTF8, 0, str, ol, NULL, 0);
-    if(ol < size_needed) {
+    if (ol < size_needed) {
         return NULL;
     }
-    ZeroMemory(receiver, size*sizeof(wchar_t));
+    ZeroMemory(receiver, size * sizeof(wchar_t));
     MultiByteToWideChar(CP_UTF8, 0, str, ol, receiver, size_needed);
     return receiver;
 }
 
-const wchar_t * draft_inet_ntop(struct sockaddr *sa, wchar_t *buf, size_t size) {
-    void *pAddr = NULL;
+const wchar_t* draft_inet_ntop(struct sockaddr* sa, wchar_t* buf, size_t size)
+{
+    void* pAddr = NULL;
     if (sa->sa_family == AF_INET) {
         pAddr = &(((struct sockaddr_in*)sa)->sin_addr);
     } else {
@@ -45,34 +48,38 @@ const wchar_t * draft_inet_ntop(struct sockaddr *sa, wchar_t *buf, size_t size) 
     return InetNtopW(sa->sa_family, pAddr, buf, size);
 }
 
-int internal_loopback_interface_index(int family) {
+int internal_loopback_interface_index(int family)
+{
     unsigned char buf[sizeof(struct sockaddr_in6)] = { 0 };
     //struct sockaddr_in6 in6 = { AF_INET6 };
     DWORD dwBestIfIndex = 0;
     if (AF_INET6 == family) {
-        struct sockaddr_in6 *in6 = (struct sockaddr_in6 *)buf;
+        struct sockaddr_in6* in6 = (struct sockaddr_in6*)buf;
         in6->sin6_family = AF_INET6;
         inet_pton(AF_INET6, "::1", &in6->sin6_addr); // InetPtonW
     } else {
-        struct sockaddr_in *in4 = (struct sockaddr_in *)buf;
+        struct sockaddr_in* in4 = (struct sockaddr_in*)buf;
         in4->sin_family = AF_INET;
         inet_pton(AF_INET, "127.0.0.1", &in4->sin_addr);
     }
-    if (NO_ERROR != GetBestInterfaceEx((struct sockaddr *)buf, &dwBestIfIndex)) {
+    if (NO_ERROR != GetBestInterfaceEx((struct sockaddr*)buf, &dwBestIfIndex)) {
         return -1;
     }
-    return (int) dwBestIfIndex;
+    return (int)dwBestIfIndex;
 }
 
-int LoopbackInterfaceIndex(void) {
+int LoopbackInterfaceIndex(void)
+{
     return internal_loopback_interface_index(AF_INET);
 }
 
-int IPv6LoopbackInterfaceIndex(void) {
+int IPv6LoopbackInterfaceIndex(void)
+{
     return internal_loopback_interface_index(AF_INET6);
 }
 
-void enum_adapter_info(ULONG family, fn_iterate_adapter pfn, void *p) {
+void enum_adapter_info(ULONG family, fn_iterate_adapter pfn, void* p)
+{
     DWORD dwSize = 0;
     DWORD dwRetVal = 0;
 
@@ -97,7 +104,7 @@ void enum_adapter_info(ULONG family, fn_iterate_adapter pfn, void *p) {
     outBufLen = WORKING_BUFFER_SIZE;
 
     do {
-        pAddresses = (IP_ADAPTER_ADDRESSES *) malloc(outBufLen);
+        pAddresses = (IP_ADAPTER_ADDRESSES*)malloc(outBufLen);
         if (pAddresses == NULL) {
             printf("Memory allocation failed for IP_ADAPTER_ADDRESSES struct\n");
             return;
@@ -121,7 +128,9 @@ void enum_adapter_info(ULONG family, fn_iterate_adapter pfn, void *p) {
         while (pCurrAddresses) {
             int stop = 0;
             pfn(&stop, pCurrAddresses, p);
-            if (stop != 0) { break; }
+            if (stop != 0) {
+                break;
+            }
             pCurrAddresses = pCurrAddresses->Next;
         }
     } else {
@@ -132,8 +141,8 @@ void enum_adapter_info(ULONG family, fn_iterate_adapter pfn, void *p) {
             LPVOID lpMsgBuf = NULL;
             DWORD flags = FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS;
             DWORD languageId = MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT);
-            if (FormatMessageA(flags, NULL, dwRetVal, languageId, (char *) & lpMsgBuf, 0, NULL)) {
-                printf("\tError: %s", (char *)lpMsgBuf);
+            if (FormatMessageA(flags, NULL, dwRetVal, languageId, (char*)&lpMsgBuf, 0, NULL)) {
+                printf("\tError: %s", (char*)lpMsgBuf);
                 LocalFree(lpMsgBuf);
             }
         }

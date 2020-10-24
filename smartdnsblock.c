@@ -50,7 +50,8 @@ FWPM_FILTER_CONDITION0 tapDeviceWhitelistCondition[1];
 FWPM_FILTER0 tapDeviceWhitelistFilter;
 UINT64 filterId2 = 0;
 
-int begin_smart_dns_block(const wchar_t * tap_device_name, const wchar_t *filter_provider_name) {
+int begin_smart_dns_block(const wchar_t* tap_device_name, const wchar_t* filter_provider_name)
+{
     UINT32 interfaceIndex;
     PIP_ADAPTER_ADDRESSES adapterAddress;
     PIP_ADAPTER_ADDRESSES adaptersAddresses = NULL;
@@ -59,7 +60,7 @@ int begin_smart_dns_block(const wchar_t * tap_device_name, const wchar_t *filter
 
     do {
         // Lookup the interface index of outline-tap0.
-        adaptersAddresses = (IP_ADAPTER_ADDRESSES *)malloc(GET_ADAPTERS_ADDRESSES_BUFFER_SIZE);
+        adaptersAddresses = (IP_ADAPTER_ADDRESSES*)malloc(GET_ADAPTERS_ADDRESSES_BUFFER_SIZE);
         result = GetAdaptersAddresses(AF_INET, 0, NULL, adaptersAddresses, &GET_ADAPTERS_ADDRESSES_BUFFER_SIZE);
         if (result != NO_ERROR) {
             fprintf(stdout, "could not fetch network device list: %d\n", (int)result);
@@ -184,7 +185,8 @@ int begin_smart_dns_block(const wchar_t * tap_device_name, const wchar_t *filter
     return result;
 }
 
-void end_smart_dns_block(void) {
+void end_smart_dns_block(void)
+{
     if (engine) {
         if (filterId) {
             FwpmFilterDeleteById0(engine, filterId);
