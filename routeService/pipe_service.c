@@ -5,7 +5,7 @@
 #include "cmd_handler.h"
 #include "comm_with_named_pipe.h"
 
-#define IS_SYSTEM_SERVICE 0
+#define IS_SYSTEM_SERVICE 1
 
 #pragma comment(linker, "/subsystem:\"windows\" /entry:\"mainCRTStartup\"") // no console window
 #pragma comment(lib, "Rpcrt4.lib")
