@@ -48,16 +48,14 @@
 #define s_statusChanged "statusChanged"
 #define s_parameters "parameters"
 #define s_proxyIp "proxyIp"
-#define s_routerIp "routerIp"
-#define s_isAutoConnnect "isAutoConnnect"
+#define s_isAutoConnect "isAutoConnect"
 #define s_statusCode "statusCode"
 #define s_errorMessage "errorMessage"
 
 struct service_request {
     char action[CMD_BUFF_SIZE];
     char proxyIp[CMD_BUFF_SIZE];
-    char routerIp[CMD_BUFF_SIZE];
-    int isAutoConnnect;
+    int isAutoConnect;
 };
 
 enum error_code {
@@ -110,7 +108,6 @@ static const wchar_t* CMD_ROUTE = L"route";
 struct router_info {
     wchar_t tapDeviceName[MAX_PATH / 4];
     wchar_t proxyIp[MAX_PATH];
-    wchar_t routerIp[MAX_PATH];
     wchar_t gatewayIp[MAX_PATH];
     wchar_t gatewayInterfaceName[MAX_PATH];
 };
@@ -119,7 +116,7 @@ struct router_info g_router_info = { 0 };
 
 void pick_live_adapter(int* stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, void* p);
 
-int configure_routing(const char* routerIp, const char* proxyIp, int isAutoConnect);
+int configure_routing(const char* proxyIp, int isAutoConnect);
 int reset_routing(const wchar_t* proxyIp, const wchar_t* proxyInterfaceName, const wchar_t* tapDeviceName);
 int run_command_wrapper(const wchar_t* cmd, const wchar_t* argv_fmt, ...);
 int delete_proxy_route(const wchar_t* proxyIp, const wchar_t* proxyInterfaceName);
@@ -159,6 +156,7 @@ static void process_json_generic(struct json_object* value, struct service_reque
         if (strcmp(entry->name, s_action) == 0) {
             assert(entry->object->type == json_type_string);
             strcpy(request->action, entry->object->u.string.ptr);
+            continue;
         }
 
         if (strcmp(entry->name, s_parameters) == 0) {
@@ -171,16 +169,15 @@ static void process_json_generic(struct json_object* value, struct service_reque
                 if (strcmp(entry2->name, s_proxyIp) == 0) {
                     assert(entry2->object->type == json_type_string);
                     strcpy(request->proxyIp, entry2->object->u.string.ptr);
+                    continue;
                 }
-                if (strcmp(entry2->name, s_routerIp) == 0) {
-                    assert(entry2->object->type == json_type_string);
-                    strcpy(request->routerIp, entry2->object->u.string.ptr);
-                }
-                if (strcmp(entry2->name, s_isAutoConnnect) == 0) {
+                if (strcmp(entry2->name, s_isAutoConnect) == 0) {
                     assert(entry2->object->type == json_type_boolean);
-                    request->isAutoConnnect = entry2->object->u.boolean;
+                    request->isAutoConnect = entry2->object->u.boolean;
+                    continue;
                 }
             }
+            continue;
         }
     }
 }
@@ -199,7 +196,7 @@ int handle_request(struct service_request* request)
 {
     int result = -1;
     if (strcmp(request->action, s_configureRouting) == 0) {
-        result = configure_routing(request->routerIp, request->proxyIp, request->isAutoConnnect);
+        result = configure_routing(request->proxyIp, request->isAutoConnect);
     }
     if (strcmp(request->action, s_resetRouting) == 0) {
         struct router_info* pInfo = &g_router_info;
@@ -209,25 +206,28 @@ int handle_request(struct service_request* request)
     return result;
 }
 
-int configure_routing(const char* routerIp, const char* proxyIp, int isAutoConnect)
+int configure_routing(const char* proxyIp, int isAutoConnect)
 {
     int result = -1;
+    (void)isAutoConnect;
     do {
         struct router_info* pInfo = &g_router_info;
         wchar_t tmp[MAX_PATH] = { 0 };
 
-        begin_smart_dns_block(TAP_DEVICE_NAME, FILTER_PROVIDER_NAME);
-
-        if (routerIp == NULL || strlen(routerIp) == 0 || proxyIp == NULL || strlen(proxyIp) == 0) {
+        result = begin_smart_dns_block(TAP_DEVICE_NAME, FILTER_PROVIDER_NAME);
+        if (result != 0) {
             break;
         }
 
-        enum_adapter_info(AF_UNSPEC, pick_live_adapter, pInfo);
+        if (proxyIp == NULL || strlen(proxyIp) == 0) {
+            break;
+        }
 
         lstrcpyW(pInfo->tapDeviceName, TAP_DEVICE_NAME);
 
+        enum_adapter_info(AF_UNSPEC, pick_live_adapter, pInfo);
+
         lstrcpyW(pInfo->proxyIp, utf8_to_wchar_string(proxyIp, tmp, ARRAYSIZE(tmp)));
-        lstrcpyW(pInfo->routerIp, utf8_to_wchar_string(routerIp, tmp, ARRAYSIZE(tmp)));
 
         result = run_command_wrapper(CMD_NETSH, L"interface ip set interface %s metric=0", pInfo->tapDeviceName);
         if (result != 0) {
@@ -315,7 +315,7 @@ int add_ipv4_redirect(const struct router_info* router)
     int i = 0;
     for (i = 0; i < ARRAYSIZE(IPV4_SUBNETS); ++i) {
         const wchar_t* subnet = IPV4_SUBNETS[i];
-        result = run_command_wrapper(CMD_NETSH, fmt, subnet, router->routerIp, router->tapDeviceName);
+        result = run_command_wrapper(CMD_NETSH, fmt, subnet, /*router->routerIp, */ router->tapDeviceName);
         if (result != 0) {
             // "could not change default gateway: {0}"
             break;
@@ -453,40 +453,7 @@ int run_command(const wchar_t* cmd, const wchar_t* args)
     return (int)exit_code;
 }
 
-void interfacesWithIpv4Gateways(PIP_ADAPTER_ADDRESSES pAddresses, void* p);
-
-void pick_live_adapter(int* stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, void* p)
-{
-    struct router_info* info = (struct router_info*)p;
-    unsigned int i = 0;
-    PIP_ADAPTER_GATEWAY_ADDRESS_LH gateway = NULL;
-
-    if (pCurrAddresses->IfType == IF_TYPE_SOFTWARE_LOOPBACK) {
-        return;
-    }
-    if (lstrcmpW(pCurrAddresses->FriendlyName, info->tapDeviceName) == 0) {
-        return;
-    }
-    if (pCurrAddresses->OperStatus != IfOperStatusUp) {
-        return;
-    }
-
-    i = 0;
-    gateway = pCurrAddresses->FirstGatewayAddress;
-    while (gateway) {
-        ++i;
-        if (gateway->Address.lpSockaddr->sa_family == AF_INET) {
-            interfacesWithIpv4Gateways(pCurrAddresses, p);
-            if (stop) {
-                *stop = TRUE;
-            }
-            return;
-        }
-        gateway = gateway->Next;
-    }
-}
-
-void interfacesWithIpv4Gateways(PIP_ADAPTER_ADDRESSES pCurrAddresses, void* p)
+static void interfaces_with_ipv4_gateways(PIP_ADAPTER_ADDRESSES pCurrAddresses, void* p)
 {
     PIP_ADAPTER_UNICAST_ADDRESS pUnicast = NULL;
     PIP_ADAPTER_ANYCAST_ADDRESS pAnycast = NULL;
@@ -513,9 +480,40 @@ void interfacesWithIpv4Gateways(PIP_ADAPTER_ADDRESSES pCurrAddresses, void* p)
     i = 0;
     pUnicast = pCurrAddresses->FirstUnicastAddress;
     while (pUnicast != NULL) {
-        printf("\t\tUnicast Addresses %d: %wS\n", i,
-            draft_inet_ntop(pUnicast->Address.lpSockaddr, s, ARRAYSIZE(s)));
+        printf("\t\tUnicast Addresses %d: %wS\n",
+            i, draft_inet_ntop(pUnicast->Address.lpSockaddr, s, ARRAYSIZE(s)));
         pUnicast = pUnicast->Next;
         ++i;
+    }
+}
+
+void pick_live_adapter(int* stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, void* p)
+{
+    struct router_info* info = (struct router_info*)p;
+    unsigned int i = 0;
+    PIP_ADAPTER_GATEWAY_ADDRESS_LH gateway = NULL;
+
+    if (pCurrAddresses->IfType == IF_TYPE_SOFTWARE_LOOPBACK) {
+        return;
+    }
+    if (lstrcmpW(pCurrAddresses->FriendlyName, info->tapDeviceName) == 0) {
+        return;
+    }
+    if (pCurrAddresses->OperStatus != IfOperStatusUp) {
+        return;
+    }
+
+    i = 0;
+    gateway = pCurrAddresses->FirstGatewayAddress;
+    while (gateway) {
+        ++i;
+        if (gateway->Address.lpSockaddr->sa_family == AF_INET) {
+            interfaces_with_ipv4_gateways(pCurrAddresses, p);
+            if (stop) {
+                *stop = TRUE;
+            }
+            return;
+        }
+        gateway = gateway->Next;
     }
 }

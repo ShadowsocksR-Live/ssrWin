@@ -5,6 +5,8 @@
 #include "cmd_handler.h"
 #include "comm_with_named_pipe.h"
 
+#define IS_SYSTEM_SERVICE 0
+
 #pragma comment(linker, "/subsystem:\"windows\" /entry:\"mainCRTStartup\"") // no console window
 #pragma comment(lib, "Rpcrt4.lib")
 
@@ -24,7 +26,15 @@ HANDLE pipe_create(const char* pipe_name)
     char buffer[MAX_PATH] = { 0 };
     HANDLE handle;
 
-    sprintf(buffer, "\\\\.\\Pipe\\%s", pipe_name);
+    SECURITY_ATTRIBUTES sa = { 0 };
+    SECURITY_DESCRIPTOR sd = { 0 };
+    InitializeSecurityDescriptor(&sd, SECURITY_DESCRIPTOR_REVISION);
+    SetSecurityDescriptorDacl(&sd, TRUE, NULL, FALSE);
+    sa.bInheritHandle = FALSE;
+    sa.lpSecurityDescriptor = &sd;
+    sa.nLength = sizeof(sa); 
+
+    sprintf(buffer, "\\\\.\\pipe\\%s", pipe_name);
     handle = CreateNamedPipeA(buffer,
         PIPE_ACCESS_DUPLEX, // open mode
         PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT, // pipe mode
@@ -32,7 +42,7 @@ HANDLE pipe_create(const char* pipe_name)
         BUFSIZE, // out buffer size
         BUFSIZE, // in buffer size
         1000, // timeout
-        NULL // Security descriptor
+        &sa // Security descriptor
     );
     if (handle == INVALID_HANDLE_VALUE) {
         sprintf(buffer, "CreateNamedPipe failed with error %d\n", GetLastError());
@@ -266,12 +276,13 @@ void __stdcall service_main(DWORD argc, char** argv)
     _service_status.dwServiceSpecificExitCode = 0;
     _service_status.dwCheckPoint = 0;
     _service_status.dwWaitHint = 0;
-
+#if IS_SYSTEM_SERVICE
     _service_status_handle = RegisterServiceCtrlHandlerA(SVC_NAME, service_control_handler);
     if (_service_status_handle == NULL) {
         // Registering Control Handler failed
         return;
     }
+#endif
     // Initialize Service
     error = init_service();
     if (error) {
@@ -281,9 +292,11 @@ void __stdcall service_main(DWORD argc, char** argv)
         SetServiceStatus(_service_status_handle, &_service_status);
         return;
     }
+#if IS_SYSTEM_SERVICE
     // We report the running status to SCM.
     _service_status.dwCurrentState = SERVICE_RUNNING;
     SetServiceStatus(_service_status_handle, &_service_status);
+#endif
 
     msg_thread = CreateThread(NULL, 0, pipe_msg_server_thread, (LPVOID)pipe_name, 0, &dwThreadId);
     if (msg_thread == INVALID_HANDLE_VALUE || msg_thread == NULL) {
@@ -304,6 +317,7 @@ void __stdcall service_main(DWORD argc, char** argv)
 
 int main(int argc, char** argv)
 {
+#if IS_SYSTEM_SERVICE
     SERVICE_TABLE_ENTRYA entry[] = {
         { SVC_NAME, service_main },
         { NULL, NULL },
@@ -311,5 +325,8 @@ int main(int argc, char** argv)
 
     // Start the control dispatcher thread for our service
     StartServiceCtrlDispatcherA(entry);
+#else
+    service_main(argc, argv);
+#endif
     return 0;
 }

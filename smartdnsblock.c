@@ -55,7 +55,7 @@ int begin_smart_dns_block(const wchar_t* tap_device_name, const wchar_t* filter_
     UINT32 interfaceIndex;
     PIP_ADAPTER_ADDRESSES adapterAddress;
     PIP_ADAPTER_ADDRESSES adaptersAddresses = NULL;
-    DWORD result;
+    DWORD result = (DWORD)-1;
     BOOL success = FALSE;
 
     do {
@@ -74,6 +74,7 @@ int begin_smart_dns_block(const wchar_t* tap_device_name, const wchar_t* filter_
 
         if (!adapterAddress) {
             fwprintf(stderr, L"could not find %s\n", tap_device_name);
+            result = (DWORD)-1;
             break;
         }
 
@@ -182,7 +183,7 @@ int begin_smart_dns_block(const wchar_t* tap_device_name, const wchar_t* filter_
     if (success == FALSE) {
         end_smart_dns_block();
     }
-    return result;
+    return (int)result;
 }
 
 void end_smart_dns_block(void)
