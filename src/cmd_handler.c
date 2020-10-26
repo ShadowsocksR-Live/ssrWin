@@ -109,7 +109,8 @@ static const wchar_t* CMD_ROUTE = L"route";
 
 struct router_info {
     wchar_t tapDeviceName[MAX_PATH / 4];
-    wchar_t proxyIp[MAX_PATH];
+    wchar_t tapGatewayIp[MAX_PATH];
+    wchar_t remoteProxyIp[MAX_PATH];
     wchar_t gatewayIp[MAX_PATH];
     wchar_t gatewayInterfaceName[MAX_PATH];
 };
@@ -117,6 +118,7 @@ struct router_info {
 struct router_info g_router_info = { 0 };
 
 void pick_live_adapter(int* stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, void* p);
+void retrieve_tap_gateway_ip(int* stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, void* p);
 
 int configure_routing(const char* proxyIp, int isAutoConnect);
 int reset_routing(const wchar_t* proxyIp, const wchar_t* proxyInterfaceName, const wchar_t* tapDeviceName);
@@ -200,7 +202,7 @@ int handle_request(struct service_request* request)
     }
     if (strcmp(request->action, s_resetRouting) == 0) {
         struct router_info* pInfo = &g_router_info;
-        result = reset_routing(pInfo->proxyIp, pInfo->gatewayInterfaceName, pInfo->tapDeviceName);
+        result = reset_routing(pInfo->remoteProxyIp, pInfo->gatewayInterfaceName, pInfo->tapDeviceName);
         ZeroMemory(pInfo, sizeof(struct router_info));
     }
     return result;
@@ -224,10 +226,10 @@ int configure_routing(const char* proxyIp, int isAutoConnect)
         }
 
         lstrcpyW(pInfo->tapDeviceName, TAP_DEVICE_NAME);
+        lstrcpyW(pInfo->remoteProxyIp, utf8_to_wchar_string(proxyIp, tmp, ARRAYSIZE(tmp)));
 
         enum_adapter_info(AF_UNSPEC, pick_live_adapter, pInfo);
-
-        lstrcpyW(pInfo->proxyIp, utf8_to_wchar_string(proxyIp, tmp, ARRAYSIZE(tmp)));
+        enum_adapter_info(AF_UNSPEC, retrieve_tap_gateway_ip, pInfo);
 
         if ((result = add_ipv4_redirect(pInfo)) != 0) {
             break;
@@ -285,10 +287,10 @@ int add_proxy_route(const struct router_info* router)
     const wchar_t* fmt1 = L"interface ipv4 add route %s/32 nexthop=%s interface=\"%s\" metric=0";
     const wchar_t* fmt2 = L"interface ipv4 set route %s/32 nexthop=%s interface=\"%s\" metric=0";
     int result = run_command_wrapper(CMD_NETSH, fmt1,
-        router->proxyIp, router->gatewayIp, router->gatewayInterfaceName);
+        router->remoteProxyIp, router->gatewayIp, router->gatewayInterfaceName);
     if (result != 0) {
         result = run_command_wrapper(CMD_NETSH, fmt2,
-            router->proxyIp, router->gatewayIp, router->gatewayInterfaceName);
+            router->remoteProxyIp, router->gatewayIp, router->gatewayInterfaceName);
     }
     return result;
 }
@@ -305,12 +307,18 @@ int add_ipv4_redirect(const struct router_info* router)
     const wchar_t* set_fmt = L"interface ipv4 set route %s nexthop=%s interface=\"%s\" metric=0 store=active";
     int result = 0;
     int i = 0;
+    if (router == NULL) {
+        return -1;
+    }
     for (i = 0; i < ARRAYSIZE(IPV4_SUBNETS); ++i) {
         const wchar_t* subnet = IPV4_SUBNETS[i];
-        result = run_command_wrapper(CMD_NETSH, add_fmt, subnet, /*router->routerIp, */ router->tapDeviceName);
+        result = run_command_wrapper(CMD_NETSH, add_fmt, subnet, router->tapGatewayIp, router->tapDeviceName);
         if (result != 0) {
-            // "could not change default gateway: {0}"
-            break;
+            result = run_command_wrapper(CMD_NETSH, set_fmt, subnet, router->tapGatewayIp, router->tapDeviceName);
+            if (result != 0) {
+                // "could not change default gateway: {0}"
+                break;
+            }
         }
     }
     return result;
@@ -394,7 +402,7 @@ void build_response(int code, const char* msg, char* out_buf, size_t size)
     sprintf(out_buf, "{ \"statusCode\": %d, \"errorMessage\": \"%s\" }", code, msg);
 }
 
-static void interfaces_with_ipv4_gateways(PIP_ADAPTER_ADDRESSES pCurrAddresses, void* p)
+static void interfaces_with_ipv4_gateways(PIP_ADAPTER_ADDRESSES pCurrAddresses, wchar_t *gatewayIp, size_t size)
 {
     PIP_ADAPTER_UNICAST_ADDRESS pUnicast = NULL;
     PIP_ADAPTER_ANYCAST_ADDRESS pAnycast = NULL;
@@ -405,19 +413,17 @@ static void interfaces_with_ipv4_gateways(PIP_ADAPTER_ADDRESSES pCurrAddresses, 
     wchar_t s[INET6_ADDRSTRLEN] = { 0 };
     int i;
 
-    struct router_info* info = (struct router_info*)p;
-
-    lstrcpyW(info->gatewayInterfaceName, pCurrAddresses->FriendlyName);
-
     gateway = pCurrAddresses->FirstGatewayAddress;
     while (gateway) {
         if (gateway->Address.lpSockaddr->sa_family == AF_INET) {
             draft_inet_ntop(gateway->Address.lpSockaddr, s, ARRAYSIZE(s));
-            lstrcpyW(info->gatewayIp, s);
+            wcsncpy(gatewayIp, s, size);
+            break;
         }
         gateway = gateway->Next;
     }
 
+#if 0
     i = 0;
     pUnicast = pCurrAddresses->FirstUnicastAddress;
     while (pUnicast != NULL) {
@@ -426,6 +432,8 @@ static void interfaces_with_ipv4_gateways(PIP_ADAPTER_ADDRESSES pCurrAddresses, 
         pUnicast = pUnicast->Next;
         ++i;
     }
+#endif
+    (void)i;
 }
 
 void pick_live_adapter(int* stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, void* p)
@@ -449,7 +457,28 @@ void pick_live_adapter(int* stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, void* p)
     while (gateway) {
         ++i;
         if (gateway->Address.lpSockaddr->sa_family == AF_INET) {
-            interfaces_with_ipv4_gateways(pCurrAddresses, p);
+            lstrcpyW(info->gatewayInterfaceName, pCurrAddresses->FriendlyName);
+            interfaces_with_ipv4_gateways(pCurrAddresses, info->gatewayIp, ARRAYSIZE(info->gatewayIp));
+            if (stop) {
+                *stop = TRUE;
+            }
+            return;
+        }
+        gateway = gateway->Next;
+    }
+}
+
+void retrieve_tap_gateway_ip(int* stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, void* p)
+{
+    struct router_info* info = (struct router_info*)p;
+    PIP_ADAPTER_GATEWAY_ADDRESS_LH gateway = NULL;
+    if (lstrcmpW(pCurrAddresses->FriendlyName, info->tapDeviceName) != 0) {
+        return;
+    }
+    gateway = pCurrAddresses->FirstGatewayAddress;
+    while (gateway) {
+        if (gateway->Address.lpSockaddr->sa_family == AF_INET) {
+            interfaces_with_ipv4_gateways(pCurrAddresses, info->tapGatewayIp, ARRAYSIZE(info->tapGatewayIp));
             if (stop) {
                 *stop = TRUE;
             }
