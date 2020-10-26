@@ -14,6 +14,7 @@
 #include "json.h"
 #include "smartdnsblock.h"
 #include "win_cmd_wrapper.h"
+#include "utf8_to_wchar.h"
 
 /*
  * Windows Service, part of the SSR Windows client, to configure routing.

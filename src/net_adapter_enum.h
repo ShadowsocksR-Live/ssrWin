@@ -4,9 +4,6 @@
 #include <iphlpapi.h>
 #include <winsock2.h>
 
-char* wchar_string_to_utf8(const wchar_t* wstr, char* receiver, size_t size);
-wchar_t* utf8_to_wchar_string(const char* str, wchar_t* receiver, size_t size);
-
 const wchar_t* draft_inet_ntop(struct sockaddr* sa, wchar_t* buf, size_t size);
 
 int LoopbackInterfaceIndex(void);

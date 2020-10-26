@@ -83,6 +83,7 @@
     <ClCompile Include="../net_adapter_enum.c" />
     <ClCompile Include="..\comm_with_named_pipe.c" />
     <ClCompile Include="..\smartdnsblock.c" />
+    <ClCompile Include="..\utf8_to_wchar.c" />
     <ClCompile Include="..\win_cmd_wrapper.c" />
     <ClCompile Include="pipe_service.c" />
   </ItemGroup>
@@ -92,6 +93,7 @@
     <ClInclude Include="../net_adapter_enum.h" />
     <ClInclude Include="..\comm_with_named_pipe.h" />
     <ClInclude Include="..\smartdnsblock.h" />
+    <ClInclude Include="..\utf8_to_wchar.h" />
     <ClInclude Include="..\win_cmd_wrapper.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

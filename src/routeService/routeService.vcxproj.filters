@@ -36,6 +36,9 @@
     <ClCompile Include="..\win_cmd_wrapper.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\utf8_to_wchar.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="../json.h">
@@ -54,6 +57,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\win_cmd_wrapper.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\utf8_to_wchar.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
