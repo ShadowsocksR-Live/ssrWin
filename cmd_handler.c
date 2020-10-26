@@ -229,6 +229,10 @@ int configure_routing(const char* proxyIp, int isAutoConnect)
 
         lstrcpyW(pInfo->proxyIp, utf8_to_wchar_string(proxyIp, tmp, ARRAYSIZE(tmp)));
 
+        if ((result = add_ipv4_redirect(pInfo)) != 0) {
+            break;
+        }
+
         result = run_command_wrapper(CMD_NETSH, L"interface ip set interface %s metric=0", pInfo->tapDeviceName);
         if (result != 0) {
             break;
@@ -236,9 +240,6 @@ int configure_routing(const char* proxyIp, int isAutoConnect)
 
         if (lstrlenW(pInfo->gatewayIp) != 0) {
             if ((result = add_proxy_route(pInfo)) != 0) {
-                break;
-            }
-            if ((result = add_ipv4_redirect(pInfo)) != 0) {
                 break;
             }
             add_reserved_subnet_bypass(pInfo);
@@ -310,12 +311,13 @@ int delete_proxy_route(const wchar_t* proxyIp, const wchar_t* proxyInterfaceName
 
 int add_ipv4_redirect(const struct router_info* router)
 {
-    const wchar_t* fmt = L"interface ipv4 add route %s nexthop=%s interface=\"%s\" metric=0";
+    const wchar_t* add_fmt = L"interface ipv4 add route %s nexthop=%s interface=\"%s\" metric=0 store=active";
+    const wchar_t* set_fmt = L"interface ipv4 set route %s nexthop=%s interface=\"%s\" metric=0 store=active";
     int result = 0;
     int i = 0;
     for (i = 0; i < ARRAYSIZE(IPV4_SUBNETS); ++i) {
         const wchar_t* subnet = IPV4_SUBNETS[i];
-        result = run_command_wrapper(CMD_NETSH, fmt, subnet, /*router->routerIp, */ router->tapDeviceName);
+        result = run_command_wrapper(CMD_NETSH, add_fmt, subnet, /*router->routerIp, */ router->tapDeviceName);
         if (result != 0) {
             // "could not change default gateway: {0}"
             break;
