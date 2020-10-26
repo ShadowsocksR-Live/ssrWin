@@ -110,9 +110,11 @@ static const wchar_t* CMD_ROUTE = L"route";
 struct router_info {
     wchar_t tapDeviceName[MAX_PATH / 4];
     wchar_t tapGatewayIp[MAX_PATH];
+    // int tapInterfaceIndex;
     wchar_t remoteProxyIp[MAX_PATH];
     wchar_t gatewayIp[MAX_PATH];
     wchar_t gatewayInterfaceName[MAX_PATH];
+    int gatewayInterfaceIndex;
 };
 
 struct router_info g_router_info = { 0 };
@@ -235,6 +237,10 @@ int configure_routing(const char* proxyIp, int isAutoConnect)
             break;
         }
 
+        if ((result = stop_routing_ipv6()) != 0) {
+            break;
+        }
+
         result = run_command_wrapper(CMD_NETSH, L"interface ip set interface %s metric=0", pInfo->tapDeviceName);
         if (result != 0) {
             break;
@@ -245,9 +251,6 @@ int configure_routing(const char* proxyIp, int isAutoConnect)
                 break;
             }
             add_reserved_subnet_bypass(pInfo);
-        }
-        if ((result = stop_routing_ipv6()) != 0) {
-            break;
         }
     } while (0);
     return result;
@@ -341,15 +344,19 @@ int remove_ipv4_redirect(const wchar_t* tapDeviceName)
 
 int stop_routing_ipv6(void)
 {
-    const wchar_t* fmt = L"interface ipv6 add route %s interface=%d metric=0";
+    const wchar_t* add_fmt = L"interface ipv6 add route %s interface=%d metric=0 store=active";
+    const wchar_t* set_fmt = L"interface ipv6 set route %s interface=%d metric=0 store=active";
     int result = 0;
     int i = 0;
     int index = IPv6LoopbackInterfaceIndex();
     for (i = 0; i < ARRAYSIZE(IPV6_SUBNETS); ++i) {
-        result = run_command_wrapper(CMD_NETSH, fmt, IPV6_SUBNETS[i], index);
+        result = run_command_wrapper(CMD_NETSH, add_fmt, IPV6_SUBNETS[i], index);
         if (result != 0) {
-            // "could not disable IPv6: {0}"
-            break;
+            result = run_command_wrapper(CMD_NETSH, set_fmt, IPV6_SUBNETS[i], index);
+            if (result != 0) {
+                // "could not disable IPv6: {0}"
+                break;
+            }
         }
     }
     return result;
@@ -458,6 +465,7 @@ void pick_live_adapter(int* stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, void* p)
         ++i;
         if (gateway->Address.lpSockaddr->sa_family == AF_INET) {
             lstrcpyW(info->gatewayInterfaceName, pCurrAddresses->FriendlyName);
+            info->gatewayInterfaceIndex = (int)pCurrAddresses->IfIndex;
             interfaces_with_ipv4_gateways(pCurrAddresses, info->gatewayIp, ARRAYSIZE(info->gatewayIp));
             if (stop) {
                 *stop = TRUE;
@@ -478,6 +486,7 @@ void retrieve_tap_gateway_ip(int* stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, vo
     gateway = pCurrAddresses->FirstGatewayAddress;
     while (gateway) {
         if (gateway->Address.lpSockaddr->sa_family == AF_INET) {
+            // info->tapInterfaceIndex = (int)pCurrAddresses->IfIndex;
             interfaces_with_ipv4_gateways(pCurrAddresses, info->tapGatewayIp, ARRAYSIZE(info->tapGatewayIp));
             if (stop) {
                 *stop = TRUE;
