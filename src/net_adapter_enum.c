@@ -128,3 +128,41 @@ void enum_adapter_info(ULONG family, fn_iterate_adapter pfn, void* p)
         free(pAddresses);
     }
 }
+
+void enum_ip_forward_table(fn_iterate_ip_forward_table pfn, void* p)
+{
+#define HEAP_MALLOC(x) HeapAlloc(GetProcessHeap(), 0, (x))
+#define HEAP_FREE(x) HeapFree(GetProcessHeap(), 0, (x))
+
+    PMIB_IPFORWARDTABLE buffer = NULL;
+    PMIB_IPFORWARDROW bestRow = NULL;
+    ULONG bufferSize = 0;
+
+    if (pfn == NULL) {
+        return;
+    }
+
+    if (ERROR_INSUFFICIENT_BUFFER != GetIpForwardTable(NULL, &bufferSize, TRUE)) {
+        return;
+    }
+
+    buffer = (PMIB_IPFORWARDTABLE)HEAP_MALLOC(bufferSize);
+    if (buffer == NULL) {
+        return;
+    }
+
+    if (ERROR_SUCCESS == GetIpForwardTable(buffer, &bufferSize, TRUE)) {
+        int i = 0;
+        int total = (int)buffer->dwNumEntries;
+        for (i = 0; i < total; ++i) {
+            PMIB_IPFORWARDROW row = buffer->table + i;
+            int stop = 0;
+            pfn(&stop, (int)total, row, p);
+            if (stop != 0) {
+                break;
+            }
+        }
+    }
+
+    HEAP_FREE(buffer);
+}
