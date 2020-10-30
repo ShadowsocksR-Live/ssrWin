@@ -110,7 +110,7 @@ static const wchar_t* CMD_ROUTE = L"route";
 struct router_info {
     wchar_t tapDeviceName[MAX_PATH / 4];
     wchar_t tapGatewayIp[MAX_PATH];
-    // int tapInterfaceIndex;
+    int tapInterfaceIndex;
     wchar_t remoteProxyIp[MAX_PATH];
     wchar_t gatewayIp[MAX_PATH];
     wchar_t gatewayInterfaceName[MAX_PATH];
@@ -120,6 +120,7 @@ struct router_info {
 struct router_info g_router_info = { 0 };
 
 void pick_live_adapter(int* stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, void* p);
+void get_system_ipv4_gateway(int* stop, int total, const MIB_IPFORWARDROW* row, void* p);
 void retrieve_tap_gateway_ip(int* stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, void* p);
 
 int configure_routing(const char* proxyIp, int isAutoConnect);
@@ -210,6 +211,13 @@ int handle_request(struct service_request* request)
     return result;
 }
 
+#define STUPID_WAY_GET_GATEWAY 1
+
+struct GET_IPFORWARDROW {
+    int tapInterfaceIndex;
+    MIB_IPFORWARDROW best_row;
+};
+
 int configure_routing(const char* proxyIp, int isAutoConnect)
 {
     int result = -1;
@@ -230,8 +238,25 @@ int configure_routing(const char* proxyIp, int isAutoConnect)
         lstrcpyW(pInfo->tapDeviceName, TAP_DEVICE_NAME);
         lstrcpyW(pInfo->remoteProxyIp, utf8_to_wchar_string(proxyIp, tmp, ARRAYSIZE(tmp)));
 
-        enum_adapter_info(AF_UNSPEC, pick_live_adapter, pInfo);
         enum_adapter_info(AF_UNSPEC, retrieve_tap_gateway_ip, pInfo);
+        enum_adapter_info(AF_UNSPEC, pick_live_adapter, pInfo);
+#if (STUPID_WAY_GET_GATEWAY)
+        {
+            static const MIB_IPFORWARDROW dummy = { 0 };
+            struct in_addr gatewayIp;
+
+            struct GET_IPFORWARDROW tmp = { pInfo->tapInterfaceIndex, { 0 } };
+            enum_ip_forward_table(get_system_ipv4_gateway, &tmp);
+            if (memcmp(&tmp.best_row, &dummy, sizeof(dummy)) == 0) {
+                break;
+            }
+
+            pInfo->gatewayInterfaceIndex = (int)tmp.best_row.dwForwardIfIndex;
+
+            gatewayIp.s_addr = (ULONG)tmp.best_row.dwForwardNextHop;
+            utf8_to_wchar_string(inet_ntoa(gatewayIp), pInfo->gatewayIp, ARRAYSIZE(pInfo->gatewayIp));
+        }
+#endif
 
         if ((result = add_ipv4_redirect(pInfo)) != 0) {
             break;
@@ -465,8 +490,10 @@ void pick_live_adapter(int* stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, void* p)
         ++i;
         if (gateway->Address.lpSockaddr->sa_family == AF_INET) {
             lstrcpyW(info->gatewayInterfaceName, pCurrAddresses->FriendlyName);
+#if !(STUPID_WAY_GET_GATEWAY)
             info->gatewayInterfaceIndex = (int)pCurrAddresses->IfIndex;
             interfaces_with_ipv4_gateways(pCurrAddresses, info->gatewayIp, ARRAYSIZE(info->gatewayIp));
+#endif
             if (stop) {
                 *stop = TRUE;
             }
@@ -486,7 +513,7 @@ void retrieve_tap_gateway_ip(int* stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, vo
     gateway = pCurrAddresses->FirstGatewayAddress;
     while (gateway) {
         if (gateway->Address.lpSockaddr->sa_family == AF_INET) {
-            // info->tapInterfaceIndex = (int)pCurrAddresses->IfIndex;
+            info->tapInterfaceIndex = (int)pCurrAddresses->IfIndex;
             interfaces_with_ipv4_gateways(pCurrAddresses, info->tapGatewayIp, ARRAYSIZE(info->tapGatewayIp));
             if (stop) {
                 *stop = TRUE;
@@ -494,5 +521,24 @@ void retrieve_tap_gateway_ip(int* stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, vo
             return;
         }
         gateway = gateway->Next;
+    }
+}
+
+void get_system_ipv4_gateway(int* stop, int total, const MIB_IPFORWARDROW* row, void* p)
+{
+    static const MIB_IPFORWARDROW dummy = { 0 };
+    struct GET_IPFORWARDROW* tmp = (struct GET_IPFORWARDROW*)p;
+    // Must be a gateway (see note above on how we can improve this).
+    if (row->dwForwardDest != 0) {
+        return;
+    }
+
+    // Must not be the TAP device.
+    if (row->dwForwardIfIndex == tmp->tapInterfaceIndex) {
+        return;
+    }
+
+    if ((memcmp(&tmp->best_row, &dummy, sizeof(dummy)) == 0) || row->dwForwardMetric1 < tmp->best_row.dwForwardMetric1) {
+        tmp->best_row = *row;
     }
 }
