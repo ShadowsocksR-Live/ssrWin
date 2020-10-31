@@ -75,7 +75,7 @@ struct service_response {
 
 void parse_request(const char* json, struct service_request* request);
 int handle_request(struct router_info* router, struct service_request* request);
-void build_response(const struct router_info* router, int code, const char* msg, char* out_buf, size_t size);
+void build_response(const char* action, int code, const char* msg, char* out_buf, size_t size);
 
 static const wchar_t* IPV4_SUBNETS[] = {
     L"0.0.0.0/1",
@@ -146,7 +146,7 @@ BOOL svc_message_handler(const BYTE* msg, size_t msg_size, BYTE* result, size_t*
     if (handle_request(router, &request) != 0) {
         code = e_c_genericFailure;
     }
-    build_response(router, code, "", (char*)result, size);
+    build_response(request.action, code, "", (char*)result, size);
     *result_size = lstrlenA((char*)result);
     return TRUE;
 }
@@ -433,9 +433,9 @@ int remove_reserved_subnet_bypass(const wchar_t* interfaceName)
     return result;
 }
 
-void build_response(const struct router_info* router, int code, const char* msg, char* out_buf, size_t size)
+void build_response(const char* action, int code, const char* msg, char* out_buf, size_t size)
 {
-    sprintf(out_buf, "{ \"statusCode\": %d, \"errorMessage\": \"%s\" }", code, msg);
+    sprintf(out_buf, "{\"action\":\"%s\", \"statusCode\": %d, \"errorMessage\": \"%s\", \"connectionStatus\":0 }", action, code, msg);
 }
 
 static void interfaces_with_ipv4_gateways(PIP_ADAPTER_ADDRESSES pCurrAddresses, wchar_t *gatewayIp, size_t size)
