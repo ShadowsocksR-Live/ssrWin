@@ -127,12 +127,12 @@ int configure_routing(const char* proxyIp, int isAutoConnect);
 int reset_routing(const wchar_t* proxyIp, const wchar_t* proxyInterfaceName, const wchar_t* tapDeviceName);
 int delete_proxy_route(const wchar_t* proxyIp, const wchar_t* proxyInterfaceName);
 void set_gateway_properties(const wchar_t* p);
-int add_proxy_route(const struct router_info* router);
 int add_ipv4_redirect(const struct router_info* router);
 int stop_routing_ipv6(void);
+int add_or_update_proxy_route(const struct router_info* router);
+int add_or_update_reserved_subnet_bypass(const struct router_info* router);
 int remove_ipv4_redirect(const wchar_t* tapDeviceName);
 int start_routing_ipv6(void);
-int add_reserved_subnet_bypass(const struct router_info* router);
 int remove_reserved_subnet_bypass(const wchar_t* interfaceName);
 
 BOOL svc_message_handler(const BYTE* msg, size_t msg_size, BYTE* result, size_t* result_size, void* p)
@@ -266,17 +266,14 @@ int configure_routing(const char* proxyIp, int isAutoConnect)
             break;
         }
 
-        result = run_command_wrapper(CMD_NETSH, L"interface ip set interface %s metric=0", pInfo->tapDeviceName);
-        if (result != 0) {
+        if ((result = add_or_update_proxy_route(pInfo)) != 0) {
             break;
         }
 
-        if (lstrlenW(pInfo->gatewayIp) != 0) {
-            if ((result = add_proxy_route(pInfo)) != 0) {
-                break;
-            }
-            add_reserved_subnet_bypass(pInfo);
+        if ((result = add_or_update_reserved_subnet_bypass(pInfo)) != 0) {
+            break;
         }
+
     } while (0);
     return result;
 }
@@ -308,19 +305,6 @@ void send_connection_status_change(int status)
 
 void set_gateway_properties(const wchar_t* p)
 {
-}
-
-int add_proxy_route(const struct router_info* router)
-{
-    const wchar_t* fmt1 = L"interface ipv4 add route %s/32 nexthop=%s interface=\"%s\" metric=0";
-    const wchar_t* fmt2 = L"interface ipv4 set route %s/32 nexthop=%s interface=\"%s\" metric=0";
-    int result = run_command_wrapper(CMD_NETSH, fmt1,
-        router->remoteProxyIp, router->gatewayIp, router->gatewayInterfaceName);
-    if (result != 0) {
-        result = run_command_wrapper(CMD_NETSH, fmt2,
-            router->remoteProxyIp, router->gatewayIp, router->gatewayInterfaceName);
-    }
-    return result;
 }
 
 int delete_proxy_route(const wchar_t* proxyIp, const wchar_t* proxyInterfaceName)
@@ -387,6 +371,40 @@ int stop_routing_ipv6(void)
     return result;
 }
 
+int add_or_update_proxy_route(const struct router_info* router)
+{
+    // "netsh interface ipv4 set route" does *not* work for us here
+    // because it can only be used to change a route's *metric*.
+    const wchar_t* chg_fmt = L"change %s %s if %d";
+    const wchar_t* add_fmt = L"interface ipv4 add route %s /32 nexthop=%s interface=\"%d\" metric=0 store=active";
+    int result = 0;
+
+    result = run_command_wrapper(CMD_ROUTE, chg_fmt, router->remoteProxyIp, router->gatewayIp, router->gatewayInterfaceIndex);
+    if (result != 0) {
+        result = run_command_wrapper(CMD_NETSH, add_fmt, router->remoteProxyIp, router->gatewayIp, router->gatewayInterfaceIndex);
+    }
+    return result;
+}
+
+// Routes reserved and private subnets through the default gateway so they bypass the VPN.
+int add_or_update_reserved_subnet_bypass(const struct router_info* router)
+{
+    const wchar_t* chg_fmt = L"change %s %s if %d";
+    const wchar_t* add_fmt = L"interface ipv4 add route %s nexthop=%s  interface=\"%d\" metric=0 store=active";
+    int result = 0;
+    int index = 0;
+    for (index = 0; index < ARRAYSIZE(IPV4_RESERVED_SUBNETS); ++index) {
+        result = run_command_wrapper(CMD_ROUTE, chg_fmt, IPV4_RESERVED_SUBNETS[index], router->gatewayIp, router->gatewayInterfaceIndex);
+        if (result != 0) {
+            result = run_command_wrapper(CMD_NETSH, add_fmt, IPV4_RESERVED_SUBNETS[index], router->gatewayIp, router->gatewayInterfaceIndex);
+            if (result != 0) {
+                break;
+            }
+        }
+    }
+    return result;
+}
+
 int start_routing_ipv6(void)
 {
     const wchar_t* fmt = L"interface ipv6 delete route %s interface=%d";
@@ -395,20 +413,6 @@ int start_routing_ipv6(void)
         result = run_command_wrapper(CMD_NETSH, fmt, IPV6_SUBNETS[i], index);
         if (result != 0) {
             // "failed to remove {0}: {1}"
-            break;
-        }
-    }
-    return result;
-}
-
-// Routes reserved and private subnets through the default gateway so they bypass the VPN.
-int add_reserved_subnet_bypass(const struct router_info* router)
-{
-    const wchar_t* fmt = L"interface ipv4 add route %s nexthop=%s interface=\"%s\" metric=0";
-    int i, result = -1;
-    for (i = 0; i < ARRAYSIZE(IPV4_RESERVED_SUBNETS); ++i) {
-        result = run_command_wrapper(CMD_NETSH, fmt, IPV4_RESERVED_SUBNETS[i], router->gatewayIp, router->gatewayInterfaceName);
-        if (result != 0) {
             break;
         }
     }
