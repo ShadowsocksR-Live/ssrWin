@@ -7,6 +7,7 @@
 #define TAP_DEVICE_NAME        L"ssr-route-tap0"
 #define FILTER_PROVIDER_NAME    SVC_NAME_W
 
-BOOL svc_message_handler(const BYTE* msg, size_t msg_size, BYTE* result, size_t* result_size, void* p);
+extern BOOL svc_message_handler(const BYTE* msg, size_t msg_size, BYTE* result, size_t* result_size, void* p);
+extern void* handler_data_p;
 
 #endif // __CMD_HANDLER_H__

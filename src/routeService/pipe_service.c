@@ -186,20 +186,27 @@ DWORD __stdcall client_thread(LPVOID lpvParam)
 
 //////////////////////////////////////////////////////////////////////////
 // service implementation
+typedef BOOL (*fn_svc_message_handler)(const BYTE* msg, size_t msg_size, BYTE* result, size_t* result_size, void* p);
+fn_svc_message_handler g_handler = NULL;
+void* g_handler_p = NULL;
 
-#if 0
-BOOL svc_message_handler(const BYTE *msg, size_t msg_size, BYTE *result, size_t *result_size, void *p) {
+BOOL svc_message_handler_dummy(const BYTE *msg, size_t msg_size, BYTE *result, size_t *result_size, void *p) {
     size_t size = min(msg_size, *result_size);
     memmove(result, msg, size);
     *result_size = size;
     return TRUE;
 }
-#endif
+
+void set_svc_message_handler(fn_svc_message_handler fn, void*p)
+{
+    g_handler = fn;
+    g_handler_p = p;
+}
 
 DWORD __stdcall pipe_msg_server_thread(LPVOID lpvParam)
 {
     const char* pipe_name = (const char*)lpvParam;
-    pipe_infinite_loop(pipe_name, svc_message_handler, NULL);
+    pipe_infinite_loop(pipe_name, g_handler, g_handler_p);
     return 0;
 }
 
@@ -266,6 +273,12 @@ void __stdcall service_main(DWORD argc, char** argv)
     HANDLE msg_thread;
     DWORD dwThreadId = 0;
     const char* pipe_name = PIPE_NAME;
+
+#if 0
+    set_svc_message_handler(&svc_message_handler_dummy, NULL);
+#else
+    set_svc_message_handler(&svc_message_handler, handler_data_p);
+#endif
 
     _thread_id = GetCurrentThreadId();
 

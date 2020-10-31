@@ -74,8 +74,8 @@ struct service_response {
 };
 
 void parse_request(const char* json, struct service_request* request);
-int handle_request(struct service_request* request);
-void build_response(int code, const char* msg, char* out_buf, size_t size);
+int handle_request(struct router_info* router, struct service_request* request);
+void build_response(const struct router_info* router, int code, const char* msg, char* out_buf, size_t size);
 
 static const wchar_t* IPV4_SUBNETS[] = {
     L"0.0.0.0/1",
@@ -118,12 +118,13 @@ struct router_info {
 };
 
 struct router_info g_router_info = { 0 };
+void* handler_data_p = (void*)&g_router_info;
 
 void pick_live_adapter(int* stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, void* p);
 void get_system_ipv4_gateway(int* stop, int total, const MIB_IPFORWARDROW* row, void* p);
 void retrieve_tap_gateway_ip(int* stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, void* p);
 
-int configure_routing(const char* proxyIp, int isAutoConnect);
+int configure_routing(struct router_info* pInfo, const char* proxyIp, int isAutoConnect);
 int reset_routing(const wchar_t* proxyIp, const wchar_t* proxyInterfaceName, const wchar_t* tapDeviceName);
 int delete_proxy_route(const wchar_t* proxyIp, const wchar_t* proxyInterfaceName);
 void set_gateway_properties(const wchar_t* p);
@@ -137,14 +138,15 @@ int remove_reserved_subnet_bypass(const wchar_t* interfaceName);
 
 BOOL svc_message_handler(const BYTE* msg, size_t msg_size, BYTE* result, size_t* result_size, void* p)
 {
+    struct router_info *router = (struct router_info*)p;
     struct service_request request = { 0 };
     size_t size = *result_size;
     enum error_code code = e_c_success;
     parse_request((char*)msg, &request);
-    if (handle_request(&request) != 0) {
+    if (handle_request(router, &request) != 0) {
         code = e_c_genericFailure;
     }
-    build_response(code, "", (char*)result, size);
+    build_response(router, code, "", (char*)result, size);
     *result_size = lstrlenA((char*)result);
     return TRUE;
 }
@@ -197,14 +199,13 @@ void parse_request(const char* json, struct service_request* request)
     }
 }
 
-int handle_request(struct service_request* request)
+int handle_request(struct router_info* pInfo, struct service_request* request)
 {
     int result = -1;
     if (strcmp(request->action, s_configureRouting) == 0) {
-        result = configure_routing(request->proxyIp, request->isAutoConnect);
+        result = configure_routing(pInfo, request->proxyIp, request->isAutoConnect);
     }
     if (strcmp(request->action, s_resetRouting) == 0) {
-        struct router_info* pInfo = &g_router_info;
         result = reset_routing(pInfo->remoteProxyIp, pInfo->gatewayInterfaceName, pInfo->tapDeviceName);
         ZeroMemory(pInfo, sizeof(struct router_info));
     }
@@ -218,12 +219,11 @@ struct GET_IPFORWARDROW {
     MIB_IPFORWARDROW best_row;
 };
 
-int configure_routing(const char* proxyIp, int isAutoConnect)
+int configure_routing(struct router_info* pInfo, const char* proxyIp, int isAutoConnect)
 {
     int result = -1;
     (void)isAutoConnect;
     do {
-        struct router_info* pInfo = &g_router_info;
         wchar_t tmp[MAX_PATH] = { 0 };
 
         result = begin_smart_dns_block(TAP_DEVICE_NAME, FILTER_PROVIDER_NAME);
@@ -433,7 +433,7 @@ int remove_reserved_subnet_bypass(const wchar_t* interfaceName)
     return result;
 }
 
-void build_response(int code, const char* msg, char* out_buf, size_t size)
+void build_response(const struct router_info* router, int code, const char* msg, char* out_buf, size_t size)
 {
     sprintf(out_buf, "{ \"statusCode\": %d, \"errorMessage\": \"%s\" }", code, msg);
 }
