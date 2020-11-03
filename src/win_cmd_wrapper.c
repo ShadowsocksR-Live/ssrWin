@@ -1,4 +1,3 @@
-#include <windows.h>
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -6,10 +5,11 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <tchar.h>
+#include <windows.h>
 
-#include "win_cmd_wrapper.h"
 #include "create_pipe_ex.h"
 #include "read_file_timeout.h"
+#include "win_cmd_wrapper.h"
 
 int run_command_wrapper(const wchar_t* cmd, const wchar_t* argv_fmt, ...)
 {
@@ -97,7 +97,7 @@ int run_command(const wchar_t* cmd, const wchar_t* args)
     CloseHandle(g_hChildStd_OUT_Wr);
     CloseHandle(g_hChildStd_OUT_Rd);
 
-    if ((exit_code == 0) && (lstrlenA(chBuf)!=0) ){
+    if ((exit_code == 0) && (lstrlenA(chBuf) != 0)) {
         exit_code = -1;
     }
 
