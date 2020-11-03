@@ -39,6 +39,12 @@
     <ClCompile Include="..\utf8_to_wchar.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\read_file_timeout.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\create_pipe_ex.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="../json.h">
@@ -60,6 +66,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\utf8_to_wchar.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\read_file_timeout.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\create_pipe_ex.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
