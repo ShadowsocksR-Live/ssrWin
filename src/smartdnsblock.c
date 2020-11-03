@@ -59,6 +59,11 @@ int begin_smart_dns_block(const wchar_t* tap_device_name, const wchar_t* filter_
     BOOL success = FALSE;
 
     do {
+        if (engine != NULL) {
+            result = 0;
+            success = TRUE;
+            break;
+        }
         // Lookup the interface index of outline-tap0.
         adaptersAddresses = (IP_ADAPTER_ADDRESSES*)malloc(GET_ADAPTERS_ADDRESSES_BUFFER_SIZE);
         result = GetAdaptersAddresses(AF_INET, 0, NULL, adaptersAddresses, &GET_ADAPTERS_ADDRESSES_BUFFER_SIZE);
