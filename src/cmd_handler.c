@@ -77,6 +77,8 @@ void parse_request(const char* json, struct service_request* request);
 int handle_request(struct router_info* router, struct service_request* request);
 void build_response(const char* action, int code, const char* msg, char* out_buf, size_t size);
 
+static const wchar_t* TAP_DEVICE_IP = L"10.0.85.1";
+
 static const wchar_t* IPV4_SUBNETS[] = {
     L"0.0.0.0/1",
     L"128.0.0.0/1",
@@ -125,8 +127,8 @@ void get_system_ipv4_gateway(int* stop, int total, const MIB_IPFORWARDROW* row, 
 void retrieve_tap_gateway_ip(int* stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, void* p);
 
 int configure_routing(struct router_info* pInfo, const char* proxyIp, int isAutoConnect);
-int reset_routing(const wchar_t* proxyIp, const wchar_t* proxyInterfaceName, const wchar_t* tapDeviceName);
-int delete_proxy_route(const wchar_t* proxyIp, const wchar_t* proxyInterfaceName);
+int reset_routing(const struct router_info* pInfo);
+int delete_proxy_route(const wchar_t* proxyIp);
 void set_gateway_properties(const wchar_t* p);
 int add_ipv4_redirect(const struct router_info* router);
 int stop_routing_ipv6(void);
@@ -134,7 +136,7 @@ int add_or_update_proxy_route(const struct router_info* router);
 int add_or_update_reserved_subnet_bypass(const struct router_info* router);
 int remove_ipv4_redirect(const wchar_t* tapDeviceName);
 int start_routing_ipv6(void);
-int remove_reserved_subnet_bypass(const wchar_t* interfaceName);
+void remove_reserved_subnet_bypass(void);
 
 BOOL svc_message_handler(const BYTE* msg, size_t msg_size, BYTE* result, size_t* result_size, void* p)
 {
@@ -206,7 +208,7 @@ int handle_request(struct router_info* pInfo, struct service_request* request)
         result = configure_routing(pInfo, request->proxyIp, request->isAutoConnect);
     }
     if (strcmp(request->action, s_resetRouting) == 0) {
-        result = reset_routing(pInfo->remoteProxyIp, pInfo->gatewayInterfaceName, pInfo->tapDeviceName);
+        result = reset_routing(pInfo);
         ZeroMemory(pInfo, sizeof(struct router_info));
     }
     return result;
@@ -226,12 +228,12 @@ int configure_routing(struct router_info* pInfo, const char* proxyIp, int isAuto
     do {
         wchar_t tmp[MAX_PATH] = { 0 };
 
-        result = begin_smart_dns_block(TAP_DEVICE_NAME, FILTER_PROVIDER_NAME);
-        if (result != 0) {
+        if (proxyIp == NULL || strlen(proxyIp) == 0) {
             break;
         }
 
-        if (proxyIp == NULL || strlen(proxyIp) == 0) {
+        result = begin_smart_dns_block(TAP_DEVICE_NAME, FILTER_PROVIDER_NAME);
+        if (result != 0) {
             break;
         }
 
@@ -239,6 +241,10 @@ int configure_routing(struct router_info* pInfo, const char* proxyIp, int isAuto
         lstrcpyW(pInfo->remoteProxyIp, utf8_to_wchar_string(proxyIp, tmp, ARRAYSIZE(tmp)));
 
         enum_adapter_info(AF_UNSPEC, retrieve_tap_gateway_ip, pInfo);
+        if (lstrlenW(pInfo->tapGatewayIp) == 0) {
+            lstrcpyW(pInfo->tapGatewayIp, TAP_DEVICE_IP);
+        }
+
         enum_adapter_info(AF_UNSPEC, pick_live_adapter, pInfo);
 #if (STUPID_WAY_GET_GATEWAY)
         {
@@ -275,25 +281,41 @@ int configure_routing(struct router_info* pInfo, const char* proxyIp, int isAuto
         }
 
     } while (0);
+
+    if (result != 0) {
+        end_smart_dns_block();
+    }
+
     return result;
 }
 
-int reset_routing(const wchar_t* proxyIp, const wchar_t* proxyInterfaceName, const wchar_t* tapDeviceName)
+int reset_routing(const struct router_info* router)
 {
-    if (proxyIp && lstrlenW(proxyIp)) {
-        if (delete_proxy_route(proxyIp, proxyInterfaceName) != 0) {
-            // log("failed to remove route to the proxy server: {e.Message}")
+    int result = -1;
+    do {
+        if ((result = remove_ipv4_redirect(router->tapDeviceName)) != 0) {
+            // log("failed to remove IPv4 redirect: " + e.Message)
         }
-    } else {
-        // log("cannot remove route to proxy server, have not previously set")
-    }
-    remove_ipv4_redirect(tapDeviceName);
-    remove_reserved_subnet_bypass(proxyInterfaceName);
-    start_routing_ipv6();
+        if ((result = start_routing_ipv6()) != 0) {
+            // log("failed to unblock IPv6: " + e.Message)
+        }
+
+        if (router->remoteProxyIp && lstrlenW(router->remoteProxyIp)) {
+            if ((result = delete_proxy_route(router->remoteProxyIp)) != 0) {
+                // log("failed to remove route to the proxy server: {e.Message}")
+            }
+            //memset(router->remoteProxyIp, 0, sizeof(router->remoteProxyIp));
+        } else {
+            // log("cannot remove route to proxy server, have not previously set")
+        }
+
+        remove_reserved_subnet_bypass();
+        //memset(router->gatewayIp, 0, sizeof(router->gatewayIp));
+    } while (0);
 
     end_smart_dns_block();
 
-    return 0;
+    return result;
 }
 
 void send_connection_status_change(int status)
@@ -307,16 +329,16 @@ void set_gateway_properties(const wchar_t* p)
 {
 }
 
-int delete_proxy_route(const wchar_t* proxyIp, const wchar_t* proxyInterfaceName)
+int delete_proxy_route(const wchar_t* proxyIp)
 {
-    static const wchar_t* fmt = L"interface ipv4 delete route %s/32 interface=\"%s\"";
-    return run_command_wrapper(CMD_NETSH, fmt, proxyIp, proxyInterfaceName);
+    static const wchar_t* fmt = L"delete %s";
+    return run_command_wrapper(CMD_ROUTE, fmt, proxyIp);
 }
 
 int add_ipv4_redirect(const struct router_info* router)
 {
-    const wchar_t* add_fmt = L"interface ipv4 add route %s nexthop=%s interface=\"%s\" metric=0 store=active";
-    const wchar_t* set_fmt = L"interface ipv4 set route %s nexthop=%s interface=\"%s\" metric=0 store=active";
+    const wchar_t* add_fmt = L"interface ipv4 add route %s nexthop=%s interface=%s metric=0 store=active";
+    const wchar_t* set_fmt = L"interface ipv4 set route %s nexthop=%s interface=%s metric=0 store=active";
     int result = 0;
     int i = 0;
     if (router == NULL) {
@@ -376,7 +398,7 @@ int add_or_update_proxy_route(const struct router_info* router)
     // "netsh interface ipv4 set route" does *not* work for us here
     // because it can only be used to change a route's *metric*.
     const wchar_t* chg_fmt = L"change %s %s if %d";
-    const wchar_t* add_fmt = L"interface ipv4 add route %s /32 nexthop=%s interface=\"%d\" metric=0 store=active";
+    const wchar_t* add_fmt = L"interface ipv4 add route %s/32 nexthop=%s interface=\"%d\" metric=0 store=active";
     int result = 0;
 
     result = run_command_wrapper(CMD_ROUTE, chg_fmt, router->remoteProxyIp, router->gatewayIp, router->gatewayInterfaceIndex);
@@ -390,7 +412,7 @@ int add_or_update_proxy_route(const struct router_info* router)
 int add_or_update_reserved_subnet_bypass(const struct router_info* router)
 {
     const wchar_t* chg_fmt = L"change %s %s if %d";
-    const wchar_t* add_fmt = L"interface ipv4 add route %s nexthop=%s  interface=\"%d\" metric=0 store=active";
+    const wchar_t* add_fmt = L"interface ipv4 add route %s nexthop=%s interface=\"%d\" metric=0 store=active";
     int result = 0;
     int index = 0;
     for (index = 0; index < ARRAYSIZE(IPV4_RESERVED_SUBNETS); ++index) {
@@ -420,17 +442,13 @@ int start_routing_ipv6(void)
 }
 
 // Removes reserved subnet routes created to bypass the VPN.
-int remove_reserved_subnet_bypass(const wchar_t* interfaceName)
+void remove_reserved_subnet_bypass(void)
 {
-    const wchar_t* fmt = L"interface ipv4 delete route %s interface=\"%s\"";
-    int i, result = -1;
+    const wchar_t* fmt = L"delete route %s";
+    int i;
     for (i = 0; i < ARRAYSIZE(IPV4_RESERVED_SUBNETS); ++i) {
-        result = run_command_wrapper(CMD_NETSH, fmt, IPV4_RESERVED_SUBNETS[i], interfaceName);
-        if (result != 0) {
-            break;
-        }
+        run_command_wrapper(CMD_ROUTE, fmt, IPV4_RESERVED_SUBNETS[i]);
     }
-    return result;
 }
 
 void build_response(const char* action, int code, const char* msg, char* out_buf, size_t size)
@@ -514,10 +532,10 @@ void retrieve_tap_gateway_ip(int* stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, vo
     if (lstrcmpW(pCurrAddresses->FriendlyName, info->tapDeviceName) != 0) {
         return;
     }
+    info->tapInterfaceIndex = (int)pCurrAddresses->IfIndex;
     gateway = pCurrAddresses->FirstGatewayAddress;
     while (gateway) {
         if (gateway->Address.lpSockaddr->sa_family == AF_INET) {
-            info->tapInterfaceIndex = (int)pCurrAddresses->IfIndex;
             interfaces_with_ipv4_gateways(pCurrAddresses, info->tapGatewayIp, ARRAYSIZE(info->tapGatewayIp));
             if (stop) {
                 *stop = TRUE;
