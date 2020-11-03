@@ -88,7 +88,7 @@ int run_command(const wchar_t* cmd, const wchar_t* args)
 
     GetExitCodeProcess(pi.hProcess, &exit_code);
 
-    ReadFileTimeout(g_hChildStd_OUT_Rd, chBuf, BUFSIZE, &dwRead, &ByteOffset, 100);
+    ReadFileTimeout(g_hChildStd_OUT_Rd, chBuf, BUFSIZE, &dwRead, &ByteOffset, 10);
 
     // Close process and thread handles.
     CloseHandle(pi.hProcess);
