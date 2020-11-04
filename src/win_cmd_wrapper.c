@@ -49,7 +49,9 @@ int run_command(const wchar_t* cmd, const wchar_t* args)
 
     ZeroMemory(&si, sizeof(si));
     si.cb = sizeof(si);
-    si.dwFlags |= STARTF_USESTDHANDLES;
+    si.dwFlags |= (STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW);
+    si.wShowWindow = SW_HIDE;
+
     si.hStdError = g_hChildStd_OUT_Wr;
     /*
     si.hStdOutput = g_hChildStd_OUT_Wr;
@@ -72,7 +74,7 @@ int run_command(const wchar_t* cmd, const wchar_t* args)
             NULL, // Process handle not inheritable
             NULL, // Thread handle not inheritable
             TRUE, // Set handle inheritance to TRUE
-            0, // No creation flags
+            CREATE_NO_WINDOW | CREATE_NEW_CONSOLE, // Creation flags
             NULL, // Use parent's environment block
             NULL, // Use parent's starting directory
             &si, // Pointer to STARTUPINFO structure
