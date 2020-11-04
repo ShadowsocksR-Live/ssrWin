@@ -30,6 +30,9 @@
     <ClInclude Include="..\server_connectivity.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\last_error_to_string.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="process_manager.c">
@@ -45,6 +48,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\server_connectivity.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\last_error_to_string.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

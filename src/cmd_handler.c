@@ -293,6 +293,11 @@ int reset_routing(const struct router_info* router)
 {
     int result = -1;
     do {
+        if (router == NULL || lstrlenW(router->tapDeviceName) == 0) {
+            result = 0;
+            break;
+        }
+
         if ((result = remove_ipv4_redirect(router->tapDeviceName)) != 0) {
             // log("failed to remove IPv4 redirect: " + e.Message)
         }

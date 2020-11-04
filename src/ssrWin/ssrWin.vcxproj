@@ -78,6 +78,7 @@
   <ItemGroup>
     <ClInclude Include="..\comm_with_named_pipe.h" />
     <ClInclude Include="..\json.h" />
+    <ClInclude Include="..\last_error_to_string.h" />
     <ClInclude Include="..\net_adapter_enum.h" />
     <ClInclude Include="..\server_connectivity.h" />
     <ClInclude Include="process_manager.h" />
@@ -85,6 +86,7 @@
   <ItemGroup>
     <ClCompile Include="..\comm_with_named_pipe.c" />
     <ClCompile Include="..\json.c" />
+    <ClCompile Include="..\last_error_to_string.c" />
     <ClCompile Include="..\net_adapter_enum.c" />
     <ClCompile Include="..\server_connectivity.c" />
     <ClCompile Include="process_manager.c" />

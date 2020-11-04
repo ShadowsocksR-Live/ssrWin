@@ -4,6 +4,8 @@
 
 #include "cmd_handler.h"
 #include "comm_with_named_pipe.h"
+#include "last_error_to_string.h"
+#include "utf8_to_wchar.h"
 
 #define IS_SYSTEM_SERVICE 1
 
@@ -167,9 +169,11 @@ DWORD __stdcall client_thread(LPVOID lpvParam)
             fSuccess = WriteFile(ctx->pipe, result, result_size, &done_size, NULL);
 
             if (!fSuccess || result_size != done_size) {
-                sprintf((char*)buffer, "WriteFile failed, GLE=%d.\n", GetLastError());
+                wchar_t* info = get_last_error_to_string(GetLastError(), &malloc);
+                char tmp[BUFSIZE] = { 0 };
+                sprintf((char*)buffer, "WriteFile failed for \"%s\"\n", wchar_string_to_utf8(info, tmp, sizeof(tmp)));
+                free(info);
                 write_to_log((char*)buffer);
-                break;
             }
         }
     } while (0);

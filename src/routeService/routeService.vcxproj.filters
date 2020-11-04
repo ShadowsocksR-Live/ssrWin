@@ -45,6 +45,9 @@
     <ClCompile Include="..\create_pipe_ex.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\last_error_to_string.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="../json.h">
@@ -72,6 +75,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\create_pipe_ex.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\last_error_to_string.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
