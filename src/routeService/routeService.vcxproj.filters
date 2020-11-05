@@ -48,6 +48,9 @@
     <ClCompile Include="..\last_error_to_string.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\net_change_monitor.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="../json.h">
@@ -78,6 +81,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\last_error_to_string.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\net_change_monitor.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

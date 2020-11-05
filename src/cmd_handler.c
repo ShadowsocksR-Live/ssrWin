@@ -15,6 +15,7 @@
 #include "smartdnsblock.h"
 #include "win_cmd_wrapper.h"
 #include "utf8_to_wchar.h"
+#include "net_change_monitor.h"
 
 /*
  * Windows Service, part of the SSR Windows client, to configure routing.
@@ -117,6 +118,7 @@ struct router_info {
     wchar_t gatewayIp[MAX_PATH];
     wchar_t gatewayInterfaceName[MAX_PATH];
     int gatewayInterfaceIndex;
+    struct net_change_ctx* monitor;
 };
 
 struct router_info g_router_info = { 0 };
@@ -201,11 +203,21 @@ void parse_request(const char* json, struct service_request* request)
     }
 }
 
+static void net_change_notification(void* p) {
+    wchar_t tmp[MAX_PATH * 2] = { 0 };
+    struct router_info* pInfo = (struct router_info*)p;
+    swprintf(tmp, ARRAYSIZE(tmp), L"NotifyAddrChange %s\n", pInfo->tapDeviceName);
+    OutputDebugStringW(tmp);
+}
+
 int handle_request(struct router_info* pInfo, struct service_request* request)
 {
     int result = -1;
+    net_status_stop_monitor(pInfo->monitor);
+    pInfo->monitor = NULL;
     if (strcmp(request->action, s_configureRouting) == 0) {
         result = configure_routing(pInfo, request->proxyIp, request->isAutoConnect);
+        pInfo->monitor = net_status_start_monitor(net_change_notification, pInfo);
     }
     if (strcmp(request->action, s_resetRouting) == 0) {
         result = reset_routing(pInfo);
