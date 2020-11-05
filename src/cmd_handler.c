@@ -119,6 +119,7 @@ struct router_info {
     wchar_t gatewayInterfaceName[MAX_PATH];
     int gatewayInterfaceIndex;
     struct net_change_ctx* monitor;
+    int shut_down;
 };
 
 struct router_info g_router_info = { 0 };
@@ -152,6 +153,10 @@ BOOL svc_message_handler(const BYTE* msg, size_t msg_size, BYTE* result, size_t*
     }
     build_response(request.action, code, "", (char*)result, size);
     *result_size = lstrlenA((char*)result);
+    if (router->shut_down) {
+        router->shut_down = 0;
+        return FALSE;
+    }
     return TRUE;
 }
 
@@ -220,8 +225,13 @@ int handle_request(struct router_info* pInfo, struct service_request* request)
         pInfo->monitor = net_status_start_monitor(net_change_notification, pInfo);
     }
     if (strcmp(request->action, s_resetRouting) == 0) {
-        result = reset_routing(pInfo);
-        ZeroMemory(pInfo, sizeof(struct router_info));
+        if (lstrlenW(pInfo->remoteProxyIp) == 0) {
+            pInfo->shut_down = 1;
+            result = 0;
+        } else {
+            result = reset_routing(pInfo);
+            ZeroMemory(pInfo, sizeof(struct router_info));
+        }
     }
     return result;
 }
