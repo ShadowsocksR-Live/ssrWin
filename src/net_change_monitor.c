@@ -41,18 +41,17 @@ static DWORD WINAPI net_monitor_thread_proc(LPVOID lpParam)
         }
 
         {
-            HANDLE ghEvents[2] = {
+            HANDLE arrEvents[2] = {
                 hEvent,
                 ctx->hEventExit,
             };
-            ret = WaitForMultipleObjects(ARRAYSIZE(ghEvents), ghEvents, FALSE, INFINITE);
+            ret = WaitForMultipleObjects(ARRAYSIZE(arrEvents), arrEvents, FALSE, INFINITE);
             switch (ret) {
             case WAIT_OBJECT_0 + 0:
                 printf("IP Address table changed..\n");
                 if (ctx->notification) {
                     ctx->notification(ctx->param);
                 }
-                Sleep(2000);
                 break;
             case WAIT_OBJECT_0 + 1:
                 printf("Exit event was signaled.\n");

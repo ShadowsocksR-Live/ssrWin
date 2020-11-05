@@ -6,6 +6,7 @@
 #include "comm_with_named_pipe.h"
 #include "last_error_to_string.h"
 #include "utf8_to_wchar.h"
+#include <string.h>
 
 #define IS_SYSTEM_SERVICE 1
 
@@ -160,6 +161,8 @@ DWORD __stdcall client_thread(LPVOID lpvParam)
                 break;
             }
 
+            write_to_log((char*)buffer);
+
             result_size = sizeof(result);
             if (ctx->callback(buffer, (size_t)done_size, result, &result_size, ctx->p) == FALSE) {
                 break;
@@ -174,6 +177,7 @@ DWORD __stdcall client_thread(LPVOID lpvParam)
                 sprintf((char*)buffer, "WriteFile failed for \"%s\"\n", wchar_string_to_utf8(info, tmp, sizeof(tmp)));
                 free(info);
                 write_to_log((char*)buffer);
+                break;
             }
         }
     } while (0);
@@ -226,7 +230,9 @@ void write_to_log(const char* str)
     fprintf(log, "%s\r\n", str);
     fclose(log);
 #else
-    OutputDebugStringA(str);
+    char tmp[MAX_PATH * 2] = { 0 };
+    _snprintf(tmp, sizeof(tmp), "%s\n", str);
+    OutputDebugStringA(tmp);
 #endif
 }
 
