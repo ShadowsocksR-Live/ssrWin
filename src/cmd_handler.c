@@ -78,7 +78,7 @@ void parse_request(const char* json, struct service_request* request);
 int handle_request(struct router_info* router, struct service_request* request);
 void build_response(const char* action, int code, const char* msg, char* out_buf, size_t size);
 
-static const wchar_t* TAP_DEVICE_IP = L"10.0.85.1";
+static const wchar_t* TAP_DEVICE_GATEWAY_IP = L"10.0.85.1";
 
 static const wchar_t* IPV4_SUBNETS[] = {
     L"0.0.0.0/1",
@@ -264,7 +264,7 @@ int configure_routing(struct router_info* pInfo, const char* proxyIp, int isAuto
 
         enum_adapter_info(AF_UNSPEC, retrieve_tap_gateway_ip, pInfo);
         if (lstrlenW(pInfo->tapGatewayIp) == 0) {
-            lstrcpyW(pInfo->tapGatewayIp, TAP_DEVICE_IP);
+            lstrcpyW(pInfo->tapGatewayIp, TAP_DEVICE_GATEWAY_IP);
         }
 
         enum_adapter_info(AF_UNSPEC, pick_live_adapter, pInfo);
