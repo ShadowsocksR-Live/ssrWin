@@ -145,8 +145,15 @@ BOOL svc_message_handler(const BYTE* msg, size_t msg_size, BYTE* result, size_t*
 {
     struct router_info *router = (struct router_info*)p;
     struct service_request request = { 0 };
-    size_t size = *result_size;
+    size_t size = result_size ? (*result_size) : 0;
     enum error_code code = e_c_success;
+
+    if (msg == NULL) {
+        // force exiting because of pipe broken.
+        lstrcpyA(request.action, s_resetRouting);
+        handle_request(router, &request);
+        return TRUE;
+    }
     parse_request((char*)msg, &request);
     if (handle_request(router, &request) != 0) {
         code = e_c_genericFailure;

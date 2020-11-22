@@ -158,6 +158,8 @@ DWORD __stdcall client_thread(LPVOID lpvParam)
                     sprintf((char*)buffer, "ReadFile failed with error %d\n", GetLastError());
                 }
                 write_to_log((char*)buffer);
+
+                ctx->callback(NULL, 0, NULL, NULL, ctx->p);
                 break;
             }
 
@@ -194,8 +196,7 @@ DWORD __stdcall client_thread(LPVOID lpvParam)
 
 //////////////////////////////////////////////////////////////////////////
 // service implementation
-typedef BOOL (*fn_svc_message_handler)(const BYTE* msg, size_t msg_size, BYTE* result, size_t* result_size, void* p);
-fn_svc_message_handler g_handler = NULL;
+fn_process_message g_handler = NULL;
 void* g_handler_p = NULL;
 
 BOOL svc_message_handler_dummy(const BYTE *msg, size_t msg_size, BYTE *result, size_t *result_size, void *p) {
@@ -205,7 +206,7 @@ BOOL svc_message_handler_dummy(const BYTE *msg, size_t msg_size, BYTE *result, s
     return TRUE;
 }
 
-void set_svc_message_handler(fn_svc_message_handler fn, void*p)
+void set_svc_message_handler(fn_process_message fn, void*p)
 {
     g_handler = fn;
     g_handler_p = p;
