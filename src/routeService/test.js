@@ -1,9 +1,25 @@
+//
+// usage: node ./test.js <remoteProxyIp> <tapDeviceName> <tapDeviceGatewayIp>
+// 
+// for example: node ./test.js 123.45.67.89 ssr-route-tap0 10.0.85.1
+//
+
 var net = require('net');
 var domain = require('domain');
 
 var remoteProxyIp = process.argv[2];
 if (remoteProxyIp == undefined) {
     remoteProxyIp = "123.45.67.89";
+}
+
+var tapDeviceName = process.argv[3];
+if (tapDeviceName == undefined) {
+    tapDeviceName = "ssr-route-tap0";
+}
+
+var tapDeviceGatewayIp = process.argv[4];
+if (tapDeviceGatewayIp == undefined) {
+    tapDeviceGatewayIp = "10.0.85.1";
 }
 
 var addr = '\\\\?\\pipe\\ssrRouteServicePipe';
@@ -34,7 +50,7 @@ d.run(function() {
         client.once('close', cleanup);
         client.once('error', cleanup);
 
-        client.write(`{"action":"configureRouting","parameters":{"proxyIp":"${remoteProxyIp}","isAutoConnect":false}}`);
+        client.write(`{"action":"configureRouting","parameters":{"proxyIp":"${remoteProxyIp}","tapDeviceName":"${tapDeviceName}","tapDeviceGatewayIp":"${tapDeviceGatewayIp}","isAutoConnect":false}}`);
 
     }.bind(this));
 

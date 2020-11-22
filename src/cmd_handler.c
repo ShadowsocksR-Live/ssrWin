@@ -55,10 +55,14 @@
 #define s_isAutoConnect "isAutoConnect"
 #define s_statusCode "statusCode"
 #define s_errorMessage "errorMessage"
+#define s_tapDeviceName "tapDeviceName"
+#define s_tapDeviceGatewayIp "tapDeviceGatewayIp"
 
 struct service_request {
     char action[CMD_BUFF_SIZE];
     char proxyIp[CMD_BUFF_SIZE];
+    char tapDeviceName[CMD_BUFF_SIZE];
+    char tapDeviceGatewayIp[CMD_BUFF_SIZE];
     int isAutoConnect;
 };
 
@@ -130,7 +134,7 @@ void pick_live_adapter(int* stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, void* p)
 void get_system_ipv4_gateway(int* stop, int total, const MIB_IPFORWARDROW* row, void* p);
 void retrieve_tap_gateway_ip(int* stop, PIP_ADAPTER_ADDRESSES pCurrAddresses, void* p);
 
-int configure_routing(struct router_info* pInfo, const char* proxyIp, int isAutoConnect);
+int configure_routing(struct router_info* pInfo, const char* proxyIp, const char *tapDeviceName, const char *tapDeviceGatewayIp, int isAutoConnect);
 int reset_routing(const struct router_info* pInfo);
 int delete_proxy_route(const wchar_t* proxyIp);
 void set_gateway_properties(const wchar_t* p);
@@ -250,6 +254,16 @@ static void process_json_generic(struct json_object* value, struct service_reque
                     strcpy(request->proxyIp, entry2->object->u.string.ptr);
                     continue;
                 }
+                if (strcmp(entry2->name, s_tapDeviceName) == 0) {
+                    assert(entry2->object->type == json_type_string);
+                    strcpy(request->tapDeviceName, entry2->object->u.string.ptr);
+                    continue;
+                }
+                if (strcmp(entry2->name, s_tapDeviceGatewayIp) == 0) {
+                    assert(entry2->object->type == json_type_string);
+                    strcpy(request->tapDeviceGatewayIp, entry2->object->u.string.ptr);
+                    continue;
+                }
                 if (strcmp(entry2->name, s_isAutoConnect) == 0) {
                     assert(entry2->object->type == json_type_boolean);
                     request->isAutoConnect = entry2->object->u.boolean;
@@ -284,7 +298,7 @@ int handle_request(struct router_info* pInfo, struct service_request* request)
     net_status_stop_monitor(pInfo->monitor);
     pInfo->monitor = NULL;
     if (strcmp(request->action, s_configureRouting) == 0) {
-        result = configure_routing(pInfo, request->proxyIp, request->isAutoConnect);
+        result = configure_routing(pInfo, request->proxyIp, request->tapDeviceName, request->tapDeviceGatewayIp, request->isAutoConnect);
         pInfo->monitor = net_status_start_monitor(net_change_notification, pInfo);
     }
     if (strcmp(request->action, s_resetRouting) == 0) {
@@ -306,7 +320,7 @@ struct GET_IPFORWARDROW {
     MIB_IPFORWARDROW best_row;
 };
 
-int configure_routing(struct router_info* pInfo, const char* proxyIp, int isAutoConnect)
+int configure_routing(struct router_info* pInfo, const char* proxyIp, const char *tapDeviceName, const char *tapDeviceGatewayIp, int isAutoConnect)
 {
     int result = -1;
     char* new_proxy_ip = NULL;
@@ -322,17 +336,26 @@ int configure_routing(struct router_info* pInfo, const char* proxyIp, int isAuto
             break;
         }
 
-        result = begin_smart_dns_block(TAP_DEVICE_NAME, FILTER_PROVIDER_NAME);
+        if (lstrlenA(tapDeviceName)) {
+            lstrcpyW(pInfo->tapDeviceName, utf8_to_wchar_string(tapDeviceName, tmp, ARRAYSIZE(tmp)));
+        } else {
+            lstrcpyW(pInfo->tapDeviceName, TAP_DEVICE_NAME);
+        }
+
+        result = begin_smart_dns_block(pInfo->tapDeviceName, FILTER_PROVIDER_NAME);
         if (result != 0) {
             break;
         }
 
-        lstrcpyW(pInfo->tapDeviceName, TAP_DEVICE_NAME);
         lstrcpyW(pInfo->remoteProxyIp, utf8_to_wchar_string(new_proxy_ip, tmp, ARRAYSIZE(tmp)));
 
         enum_adapter_info(AF_UNSPEC, retrieve_tap_gateway_ip, pInfo);
         if (lstrlenW(pInfo->tapGatewayIp) == 0) {
-            lstrcpyW(pInfo->tapGatewayIp, TAP_DEVICE_GATEWAY_IP);
+            if (lstrlenA(tapDeviceGatewayIp)) {
+                lstrcpyW(pInfo->tapGatewayIp, utf8_to_wchar_string(tapDeviceGatewayIp, tmp, ARRAYSIZE(tmp)));
+            } else {
+                lstrcpyW(pInfo->tapGatewayIp, TAP_DEVICE_GATEWAY_IP);
+            }
         }
 
         enum_adapter_info(AF_UNSPEC, pick_live_adapter, pInfo);
