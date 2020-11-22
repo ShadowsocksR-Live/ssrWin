@@ -16,6 +16,7 @@
 #include "win_cmd_wrapper.h"
 #include "utf8_to_wchar.h"
 #include "net_change_monitor.h"
+#include "last_error_to_string.h"
 
 /*
  * Windows Service, part of the SSR Windows client, to configure routing.
@@ -141,6 +142,60 @@ int remove_ipv4_redirect(const wchar_t* tapDeviceName);
 int start_routing_ipv6(void);
 void remove_reserved_subnet_bypass(void);
 
+#pragma comment (lib, "Ws2_32.lib")
+
+char* adjust_ipv4_addr(const char* addr_str, void* (*allocator)(size_t)) {
+    DWORD dwRetval;
+    struct addrinfo *result = NULL;
+    struct addrinfo hints;
+    struct addrinfo *ptr = NULL;
+    int i = 1;
+    char* result_str = NULL;
+    static int init_flag = 0;
+
+    if (addr_str==NULL || allocator==NULL) {
+        return NULL;
+    }
+
+    if (init_flag == 0) {
+        WSADATA wsaData = { 0 };
+        WSAStartup(MAKEWORD(2, 2), &wsaData);
+        init_flag = 1;
+    }
+
+    ZeroMemory( &hints, sizeof(hints) );
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+
+    dwRetval = getaddrinfo(addr_str, NULL, &hints, &result);
+    if ( dwRetval != 0 ) {
+        wchar_t tmp[MAX_PATH * 2] = { 0 };
+        wchar_t *p = get_last_error_to_string(dwRetval, &malloc);
+        swprintf(tmp, ARRAYSIZE(tmp), L"getaddrinfo failed with error: %s\n", p);
+        OutputDebugStringW(tmp);
+        free(p);
+        return NULL;
+    }
+
+    for(ptr=result; ptr != NULL; ptr=ptr->ai_next) {
+        printf("getaddrinfo response %d\n", i++);
+        printf("\tFlags: 0x%x\n", ptr->ai_flags);
+        if (ptr->ai_family == AF_INET) {
+            struct sockaddr_in *sockaddr_ipv4;
+            printf("AF_INET (IPv4)\n");
+            sockaddr_ipv4 = (struct sockaddr_in *) ptr->ai_addr;
+            if ((result_str = (char*)allocator(100)) == NULL) {
+                break;
+            }
+            lstrcpyA(result_str, inet_ntoa(sockaddr_ipv4->sin_addr));
+            break;
+        }
+    }
+    freeaddrinfo(result);
+    return result_str;
+}
+
 BOOL svc_message_handler(const BYTE* msg, size_t msg_size, BYTE* result, size_t* result_size, void* p)
 {
     struct router_info *router = (struct router_info*)p;
@@ -152,6 +207,7 @@ BOOL svc_message_handler(const BYTE* msg, size_t msg_size, BYTE* result, size_t*
         // force exiting because of pipe broken.
         lstrcpyA(request.action, s_resetRouting);
         handle_request(router, &request);
+        router->shut_down = 0;
         return TRUE;
     }
     parse_request((char*)msg, &request);
@@ -253,11 +309,16 @@ struct GET_IPFORWARDROW {
 int configure_routing(struct router_info* pInfo, const char* proxyIp, int isAutoConnect)
 {
     int result = -1;
+    char* new_proxy_ip = NULL;
     (void)isAutoConnect;
     do {
         wchar_t tmp[MAX_PATH] = { 0 };
 
         if (proxyIp == NULL || strlen(proxyIp) == 0) {
+            break;
+        }
+
+        if ((new_proxy_ip = adjust_ipv4_addr(proxyIp, &malloc)) == NULL) {
             break;
         }
 
@@ -267,7 +328,7 @@ int configure_routing(struct router_info* pInfo, const char* proxyIp, int isAuto
         }
 
         lstrcpyW(pInfo->tapDeviceName, TAP_DEVICE_NAME);
-        lstrcpyW(pInfo->remoteProxyIp, utf8_to_wchar_string(proxyIp, tmp, ARRAYSIZE(tmp)));
+        lstrcpyW(pInfo->remoteProxyIp, utf8_to_wchar_string(new_proxy_ip, tmp, ARRAYSIZE(tmp)));
 
         enum_adapter_info(AF_UNSPEC, retrieve_tap_gateway_ip, pInfo);
         if (lstrlenW(pInfo->tapGatewayIp) == 0) {
@@ -314,6 +375,8 @@ int configure_routing(struct router_info* pInfo, const char* proxyIp, int isAuto
     if (result != 0) {
         end_smart_dns_block();
     }
+
+    free(new_proxy_ip);
 
     return result;
 }
