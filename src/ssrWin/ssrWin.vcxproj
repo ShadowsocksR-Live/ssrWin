@@ -53,7 +53,7 @@
       <AdditionalIncludeDirectories>..</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
@@ -69,7 +69,7 @@
       <AdditionalIncludeDirectories>..</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
@@ -82,6 +82,7 @@
     <ClInclude Include="..\net_adapter_enum.h" />
     <ClInclude Include="..\server_connectivity.h" />
     <ClInclude Include="process_manager.h" />
+    <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\comm_with_named_pipe.c" />
@@ -89,7 +90,14 @@
     <ClCompile Include="..\last_error_to_string.c" />
     <ClCompile Include="..\net_adapter_enum.c" />
     <ClCompile Include="..\server_connectivity.c" />
+    <ClCompile Include="main.c" />
     <ClCompile Include="process_manager.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="ssrwin.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ssrwin.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -40,7 +40,7 @@ const wchar_t * testTapDevice(wchar_t *buffer, size_t count) {
     return lstrlenW(buffer) ? buffer : NULL;
 }
 
-int main(int argc, char *argv[]) {
+int _main(int argc, char *argv[]) {
     wchar_t ip[MAX_PATH] = { 0 };
     if (testTapDevice(ip, ARRAYSIZE(ip))) {
 
