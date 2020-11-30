@@ -81,6 +81,7 @@
     <ClInclude Include="..\last_error_to_string.h" />
     <ClInclude Include="..\net_adapter_enum.h" />
     <ClInclude Include="..\server_connectivity.h" />
+    <ClInclude Include="checkablegroupbox.h" />
     <ClInclude Include="process_manager.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
@@ -90,6 +91,7 @@
     <ClCompile Include="..\last_error_to_string.c" />
     <ClCompile Include="..\net_adapter_enum.c" />
     <ClCompile Include="..\server_connectivity.c" />
+    <ClCompile Include="checkablegroupbox.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="process_manager.c" />
   </ItemGroup>
