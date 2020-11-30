@@ -5,20 +5,38 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "routeService", "routeServic
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ssrWin", "ssrWin\ssrWin.vcxproj", "{78E82813-DC2F-402E-9494-9C2844CD8641}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libPrivoxy", "..\depends\privoxy\windows\libPrivoxy.vcxproj", "{63EEE6DF-B47C-4CB5-B3C2-199D73978450}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
+		Debug|x64 = Debug|x64
 		Release|Win32 = Release|Win32
+		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Debug|Win32.ActiveCfg = Debug|Win32
 		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Debug|Win32.Build.0 = Debug|Win32
+		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Debug|x64.ActiveCfg = Debug|x64
+		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Debug|x64.Build.0 = Debug|x64
 		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Release|Win32.ActiveCfg = Release|Win32
 		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Release|Win32.Build.0 = Release|Win32
+		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Release|x64.ActiveCfg = Release|x64
+		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Release|x64.Build.0 = Release|x64
 		{78E82813-DC2F-402E-9494-9C2844CD8641}.Debug|Win32.ActiveCfg = Debug|Win32
 		{78E82813-DC2F-402E-9494-9C2844CD8641}.Debug|Win32.Build.0 = Debug|Win32
+		{78E82813-DC2F-402E-9494-9C2844CD8641}.Debug|x64.ActiveCfg = Debug|x64
+		{78E82813-DC2F-402E-9494-9C2844CD8641}.Debug|x64.Build.0 = Debug|x64
 		{78E82813-DC2F-402E-9494-9C2844CD8641}.Release|Win32.ActiveCfg = Release|Win32
 		{78E82813-DC2F-402E-9494-9C2844CD8641}.Release|Win32.Build.0 = Release|Win32
+		{78E82813-DC2F-402E-9494-9C2844CD8641}.Release|x64.ActiveCfg = Release|x64
+		{78E82813-DC2F-402E-9494-9C2844CD8641}.Release|x64.Build.0 = Release|x64
+		{63EEE6DF-B47C-4CB5-B3C2-199D73978450}.Debug|Win32.ActiveCfg = Debug|Win32
+		{63EEE6DF-B47C-4CB5-B3C2-199D73978450}.Debug|Win32.Build.0 = Debug|Win32
+		{63EEE6DF-B47C-4CB5-B3C2-199D73978450}.Debug|x64.ActiveCfg = Debug|x64
+		{63EEE6DF-B47C-4CB5-B3C2-199D73978450}.Release|Win32.ActiveCfg = Release|Win32
+		{63EEE6DF-B47C-4CB5-B3C2-199D73978450}.Release|Win32.Build.0 = Release|Win32
+		{63EEE6DF-B47C-4CB5-B3C2-199D73978450}.Release|x64.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

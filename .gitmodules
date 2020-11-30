@@ -1,0 +1,4 @@
+[submodule "depends/privoxy"]
+	path = depends/privoxy
+	url = https://github.com/ShadowsocksR-Live/Privoxy.git
+	branch = master
