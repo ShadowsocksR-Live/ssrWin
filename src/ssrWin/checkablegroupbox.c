@@ -26,7 +26,7 @@ LRESULT CALLBACK CheckableGroupBoxProc(HWND hWnd, UINT uMsg, WPARAM wParam,
     LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
     LRESULT rs = 0;
-    CheckableGroupBoxData *data = (CheckableGroupBoxData *)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
+    CheckableGroupBoxData* data = (CheckableGroupBoxData*)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
     switch (uMsg)
     {
     case WM_COMMAND:
@@ -37,8 +37,8 @@ LRESULT CALLBACK CheckableGroupBoxProc(HWND hWnd, UINT uMsg, WPARAM wParam,
             assert(data->hCheckBox == hChkBox);
             CheckableGroupBox_OnClicked(hWnd);
         }
+        break;
     }
-    break;
     case BM_GETCHECK:
         return CheckableGroupBox_GetCheck(hWnd);
         break;
@@ -72,7 +72,7 @@ static void CWnd_SetCheck(HWND hWnd, int nCheck) {
 }
 
 static int CheckableGroupBox_GetCheck(HWND hWnd) {
-    CheckableGroupBoxData *data = (CheckableGroupBoxData *)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
+    CheckableGroupBoxData* data = (CheckableGroupBoxData*)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
     assert(IsWindow(hWnd));
     return (int)CWnd_GetCheck(data->hCheckBox);
 }
@@ -128,16 +128,16 @@ static void CheckableGroupBox_EnableControls(HWND hWnd, BOOL bActivate)
             continue;
         }
 
-/*
-#ifndef IDC_STATIC
-#define IDC_STATIC      (-1)
-#endif
+        /*
+        #ifndef IDC_STATIC
+        #define IDC_STATIC      (-1)
+        #endif
 
         if ((short)GetDlgCtrlID(pCtrl) == IDC_STATIC) {
             pCtrl = GetWindow(pCtrl, GW_HWNDNEXT);
             continue;
         }
-*/
+        */
 
         GetWindowRect(pCtrl, &rCtrl);
 
@@ -159,7 +159,7 @@ BOOL CheckableGroupBox_SubclassWindow(HWND hWnd) {
     int nWidth;
     RECT r = { 0 };
     HWND hCheckBox = NULL;
-    CheckableGroupBoxData *data = NULL;
+    CheckableGroupBoxData* data = NULL;
 
     if (IsWindow(hWnd) == FALSE) {
         assert(FALSE);
@@ -204,7 +204,7 @@ BOOL CheckableGroupBox_SubclassWindow(HWND hWnd) {
     CWnd_SetFont(hCheckBox, CWnd_GetFont(hWnd), TRUE);
     ShowWindow(hCheckBox, SW_SHOW);
 
-    data = (CheckableGroupBoxData *)calloc(1, sizeof(*data));
+    data = (CheckableGroupBoxData*)calloc(1, sizeof(*data));
     data->hCheckBox = hCheckBox;
 
     SetWindowLongPtrW(hWnd, GWLP_USERDATA, (LONG)data);
@@ -254,7 +254,7 @@ static int CheckableGroupBox_MoveTitle(HWND hWnd)
 
 static int CheckableGroupBox_SetCheck(HWND hWnd, int nCheck)
 {
-    CheckableGroupBoxData *data = (CheckableGroupBoxData *)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
+    CheckableGroupBoxData* data = (CheckableGroupBoxData*)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
     CWnd_SetCheck(data->hCheckBox, nCheck);
     CheckableGroupBox_EnableControls(hWnd, nCheck == 0 ? FALSE : TRUE);
     return 0;
@@ -262,7 +262,7 @@ static int CheckableGroupBox_SetCheck(HWND hWnd, int nCheck)
 
 static void CheckableGroupBox_OnEnable(HWND hWnd, BOOL bEnable)
 {
-    CheckableGroupBoxData *data = (CheckableGroupBoxData *)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
+    CheckableGroupBoxData* data = (CheckableGroupBoxData*)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
     EnableWindow(data->hCheckBox, bEnable);
     CheckableGroupBox_EnableControls(hWnd, bEnable && CheckableGroupBox_GetCheck(hWnd));
 }
