@@ -5,7 +5,7 @@
 
 HINSTANCE hinst;
 
-int PASCAL WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLine, int nCmdShow)
+int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmdLine, int nCmdShow)
 {
     MSG msg = { 0 };
     BOOL bRet = FALSE;
@@ -17,6 +17,7 @@ int PASCAL WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLi
     while ((bRet = GetMessageW(&msg, NULL, 0, 0)) != FALSE) {
         if (bRet == -1) {
             // handle the error and possibly exit
+            break;
         }
         else {
             TranslateMessage(&msg);
