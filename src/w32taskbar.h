@@ -17,6 +17,7 @@ extern "C" {
 
 extern HWND CreateTrayWindow(HINSTANCE hInstance, HMENU hMenuTray, HWND hwndReciever);
 extern void TraySetDblClkCallback(HWND hwnd, void(*cb)(void*p), void*p);
+extern void TraySetClickCallback(HWND hwnd, void(*cb)(void*p), void*p);
 extern BOOL TrayAddIcon(HWND hwnd, UINT uID, HICON hicon, const wchar_t* pszToolTip);
 extern BOOL TraySetIcon(HWND hwnd, UINT uID, HICON hicon);
 extern BOOL TrayDeleteIcon(HWND hwnd, UINT uID);

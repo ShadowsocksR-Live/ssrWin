@@ -26,6 +26,8 @@ static HICON g_hiconApp = NULL;
 static wchar_t g_szToolTip[MAX_PATH] = { 0 };
 static void(*g_dbclk_cb)(void*p) = NULL;
 static void* g_dbclk_cb_p = NULL;
+static void(*g_clk_cb)(void*p) = NULL;
+static void* g_clk_cb_p = NULL;
 
 static LRESULT CALLBACK TrayProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -73,6 +75,11 @@ HWND CreateTrayWindow(HINSTANCE hInstance, HMENU hMenuTray, HWND hwndReciever)
 void TraySetDblClkCallback(HWND hwnd, void(*cb)(void*p), void*p) {
     g_dbclk_cb = cb;
     g_dbclk_cb_p = p;
+}
+
+void TraySetClickCallback(HWND hwnd, void(*cb)(void*p), void*p) {
+    g_clk_cb = cb;
+    g_clk_cb_p = p;
 }
 
 /*********************************************************************
@@ -200,6 +207,11 @@ LRESULT CALLBACK TrayProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         else if (uMouseMsg == WM_LBUTTONDBLCLK) {
             if (g_dbclk_cb) {
                 g_dbclk_cb(g_dbclk_cb_p); // ShowLogWindow(TRUE);
+            }
+        }
+        else if (uMouseMsg == WM_LBUTTONDOWN) {
+            if (g_clk_cb) {
+                g_clk_cb(g_clk_cb_p);
             }
         }
         return 0;
