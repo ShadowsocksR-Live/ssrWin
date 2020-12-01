@@ -36,7 +36,7 @@ void extract_tap_adapter_info(int *stop, PIP_ADAPTER_ADDRESSES addresse, void *p
 const wchar_t * testTapDevice(wchar_t *buffer, size_t count) {
     struct tap_device_info info = { TAP_DEVICE_NAME };
     enum_adapter_info(AF_UNSPEC, extract_tap_adapter_info, &info);
-    lstrcpynW(buffer, info.device_ip, count);
+    lstrcpynW(buffer, info.device_ip, (int)count);
     return lstrlenW(buffer) ? buffer : NULL;
 }
 

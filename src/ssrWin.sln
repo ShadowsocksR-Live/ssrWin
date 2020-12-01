@@ -4,6 +4,9 @@ Microsoft Visual Studio Solution File, Format Version 11.00
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "routeService", "routeService\routeService.vcxproj", "{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ssrWin", "ssrWin\ssrWin.vcxproj", "{78E82813-DC2F-402E-9494-9C2844CD8641}"
+	ProjectSection(ProjectDependencies) = postProject
+		{63EEE6DF-B47C-4CB5-B3C2-199D73978450} = {63EEE6DF-B47C-4CB5-B3C2-199D73978450}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libPrivoxy", "..\depends\privoxy\windows\libPrivoxy.vcxproj", "{63EEE6DF-B47C-4CB5-B3C2-199D73978450}"
 EndProject

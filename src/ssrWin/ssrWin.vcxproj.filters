@@ -39,6 +39,9 @@
     <ClInclude Include="checkablegroupbox.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\w32taskbar.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="process_manager.c">
@@ -63,6 +66,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="checkablegroupbox.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\w32taskbar.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
