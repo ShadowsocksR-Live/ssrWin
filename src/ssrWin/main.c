@@ -12,8 +12,9 @@ HWND hTrayWnd = NULL;
 #define TRAY_ICON_ID 1
 
 INT_PTR CALLBACK MainDlgProc(HWND, UINT, WPARAM, LPARAM);
-static void TrayClickCb(void*p);
+static void TrayClickCb(void* p);
 static void ShowWindowSimple(HWND hWnd, BOOL bShow);
+static void RestoreWindowPos(HWND hWnd);
 
 int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmdLine, int nCmdShow)
 {
@@ -49,7 +50,7 @@ int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmd
             // handle the error and possibly exit
             break;
         }
-        else if (!IsWindow(hMainDlg) || 
+        else if (!IsWindow(hMainDlg) ||
             !IsDialogMessage(hMainDlg, &msg) ||
             !TranslateAccelerator(hMainDlg, hAccel, &msg))
         {
@@ -58,19 +59,21 @@ int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmd
         }
     }
 
-    return (int) msg.wParam;
+    return (int)msg.wParam;
 }
 
 INT_PTR CALLBACK MainDlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     INT_PTR result = (INT_PTR)FALSE;
     switch (message)
     {
-    case WM_INITDIALOG: 
+    case WM_INITDIALOG:
+        RestoreWindowPos(hWnd);
         break;
     case WM_CLOSE:
         if (wParam == ID_CMD_EXIT) {
             DestroyWindow(hWnd);
-        } else {
+        }
+        else {
             ShowWindowSimple(hWnd, FALSE);
         }
         result = (INT_PTR)TRUE;
@@ -80,8 +83,8 @@ INT_PTR CALLBACK MainDlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         PostQuitMessage(0);
         result = (INT_PTR)TRUE;
         break;
-    case WM_COMMAND: 
-        switch (LOWORD(wParam)) 
+    case WM_COMMAND:
+        switch (LOWORD(wParam))
         {
         case ID_CMD_EXIT:
             SendMessageW(hWnd, WM_CLOSE, ID_CMD_EXIT, 0);
@@ -101,7 +104,7 @@ INT_PTR CALLBACK MainDlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
     return result;
 }
 
-static void TrayClickCb(void*p) {
+static void TrayClickCb(void* p) {
     HWND hWnd = (HWND)p;
     if (IsWindow(hWnd)) {
         ShowWindowSimple(hWnd, IsWindowVisible(hWnd) ? FALSE : TRUE);
@@ -116,7 +119,39 @@ static void ShowWindowSimple(HWND hWnd, BOOL bShow) {
     if (bShow) {
         SetForegroundWindow(hWnd);
         SetWindowPos(hWnd, HWND_TOP, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOSIZE | SWP_NOMOVE);
-    } else {
+        ShowWindow(hWnd, SW_RESTORE);
+    }
+    else {
         ShowWindow(hWnd, g_bShowOnTaskBar ? SW_MINIMIZE : SW_HIDE);
     }
+}
+
+static void RestoreWindowPos(HWND hWnd) {
+    HWND hwndOwner;
+    RECT rc, rcDlg, rcOwner;
+    if ((hwndOwner = GetParent(hWnd)) == NULL) {
+        hwndOwner = GetDesktopWindow();
+    }
+
+    GetWindowRect(hwndOwner, &rcOwner);
+    GetWindowRect(hWnd, &rcDlg);
+    CopyRect(&rc, &rcOwner);
+
+    // Offset the owner and dialog box rectangles so that right and bottom 
+    // values represent the width and height, and then offset the owner again 
+    // to discard space taken up by the dialog box. 
+
+    OffsetRect(&rcDlg, -rcDlg.left, -rcDlg.top);
+    OffsetRect(&rc, -rc.left, -rc.top);
+    OffsetRect(&rc, -rcDlg.right, -rcDlg.bottom);
+
+    // The new position is the sum of half the remaining space and the owner's 
+    // original position. 
+
+    SetWindowPos(hWnd,
+        HWND_TOP,
+        rcOwner.left + (rc.right / 2),
+        rcOwner.top + (rc.bottom / 2),
+        0, 0,          // Ignores size arguments. 
+        SWP_NOSIZE);
 }
