@@ -12,8 +12,8 @@ HWND hTrayWnd = NULL;
 #define TRAY_ICON_ID 1
 
 INT_PTR CALLBACK MainDlgProc(HWND, UINT, WPARAM, LPARAM);
-static void TrayDblClkCb(void*p);
 static void TrayClickCb(void*p);
+static void ShowWindowSimple(HWND hWnd, BOOL bShow);
 
 int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmdLine, int nCmdShow)
 {
@@ -39,7 +39,6 @@ int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmd
         LoadStringW(hInstance, IDS_APP_NAME, AppName, ARRAYSIZE(AppName));
         TrayAddIcon(hTrayWnd, TRAY_ICON_ID, hIconApp, AppName);
 
-        TraySetDblClkCallback(hTrayWnd, TrayDblClkCb, hMainDlg);
         TraySetClickCallback(hTrayWnd, TrayClickCb, hMainDlg);
     }
 
@@ -72,7 +71,7 @@ INT_PTR CALLBACK MainDlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         if (wParam == ID_CMD_EXIT) {
             DestroyWindow(hWnd);
         } else {
-            ShowWindow(hWnd, SW_HIDE);
+            ShowWindowSimple(hWnd, FALSE);
         }
         result = (INT_PTR)TRUE;
         break;
@@ -88,7 +87,7 @@ INT_PTR CALLBACK MainDlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             SendMessageW(hWnd, WM_CLOSE, ID_CMD_EXIT, 0);
             break;
         case ID_CMD_CONFIG:
-            ShowWindow(hWnd, SW_SHOW);
+            ShowWindowSimple(hWnd, TRUE);
             break;
         case IDCANCEL:
             SendMessageW(hWnd, WM_CLOSE, 0, 0);
@@ -102,13 +101,22 @@ INT_PTR CALLBACK MainDlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
     return result;
 }
 
-static void TrayDblClkCb(void*p) {
+static void TrayClickCb(void*p) {
     HWND hWnd = (HWND)p;
     if (IsWindow(hWnd)) {
-        ShowWindow(hWnd, SW_SHOW);
+        ShowWindowSimple(hWnd, IsWindowVisible(hWnd) ? FALSE : TRUE);
     }
 }
 
-static void TrayClickCb(void*p) {
-    TrayDblClkCb(p);
+BOOL g_bShowOnTaskBar = FALSE;
+static void ShowWindowSimple(HWND hWnd, BOOL bShow) {
+    if (IsWindow(hWnd) == FALSE) {
+        return;
+    }
+    if (bShow) {
+        SetForegroundWindow(hWnd);
+        SetWindowPos(hWnd, HWND_TOP, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOSIZE | SWP_NOMOVE);
+    } else {
+        ShowWindow(hWnd, g_bShowOnTaskBar ? SW_MINIMIZE : SW_HIDE);
+    }
 }
