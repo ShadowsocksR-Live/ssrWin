@@ -2,7 +2,6 @@
 #include <WindowsX.h>
 #include <assert.h>
 #include "resource.h"
-#include <privoxyexports.h>
 #include "w32taskbar.h"
 
 HINSTANCE hinst;
