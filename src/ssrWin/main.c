@@ -43,6 +43,8 @@ int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmd
         TraySetClickCallback(hTrayWnd, TrayClickCb, hMainDlg);
     }
 
+    SendMessage(hMainDlg, WM_SETICON, ICON_BIG, (LPARAM)hIconApp);
+
     hAccel = LoadAcceleratorsW(hInstance, MAKEINTRESOURCEW(IDR_ACCE_CONFIG));
 
     while ((bRet = GetMessageW(&msg, NULL, 0, 0)) != FALSE) {
@@ -98,6 +100,17 @@ INT_PTR CALLBACK MainDlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         }
         result = (INT_PTR)TRUE;
         break;
+    case WM_SYSCOMMAND:
+        switch (wParam)
+        {
+        case SC_CLOSE:
+        case SC_MINIMIZE:
+            ShowWindowSimple(hWnd, FALSE);
+            result = (INT_PTR)TRUE;
+            break;
+        }
+        break;
+
     default:
         break;
     }
