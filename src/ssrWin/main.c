@@ -56,9 +56,11 @@ int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmd
             // handle the error and possibly exit
             break;
         }
+/*
         else if (!IsWindow(hMainDlg) ||
             !IsDialogMessage(hMainDlg, &msg) ||
             !TranslateAccelerator(hMainDlg, hAccel, &msg))
+*/
         {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
