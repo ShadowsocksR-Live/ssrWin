@@ -65,7 +65,6 @@ HWND CreateTrayWindow(HINSTANCE hInstance, HMENU hMenuTray, HWND hwndReciever)
     ShowWindow(g_hwndTrayX, SW_HIDE);
     UpdateWindow(g_hwndTrayX);
 
-    // g_hmenuTray = LoadMenuW(hInstance, MAKEINTRESOURCE(IDR_TRAYMENU));
     g_hmenuTray = hMenuTray;
     g_hwndReciever = hwndReciever;
 
@@ -198,10 +197,9 @@ LRESULT CALLBACK TrayProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         UINT uMouseMsg = (UINT)lParam;
         if (uMouseMsg == WM_RBUTTONDOWN) {
             POINT pt = { 0 };
-            HMENU hmenu = GetSubMenu(g_hmenuTray, 0);
             GetCursorPos(&pt);
             SetForegroundWindow(g_hwndReciever);
-            TrackPopupMenu(hmenu, TPM_LEFTALIGN | TPM_TOPALIGN, pt.x, pt.y, 0, g_hwndReciever, NULL);
+            TrackPopupMenu(g_hmenuTray, TPM_LEFTALIGN | TPM_TOPALIGN, pt.x, pt.y, 0, g_hwndReciever, NULL);
             PostMessage(g_hwndReciever, WM_NULL, 0, 0);
         }
         else if (uMouseMsg == WM_LBUTTONDBLCLK) {

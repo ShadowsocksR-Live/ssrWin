@@ -32,6 +32,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ssr-client-lib", "..\depend
 		{E683C8F1-3C3F-4B5D-B60E-87D792D21002} = {E683C8F1-3C3F-4B5D-B60E-87D792D21002}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "routeService", "routeService\routeService.vcxproj", "{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -104,6 +106,14 @@ Global
 		{F97AD980-48B0-4C94-9662-499EFEE4AB44}.Release|Win32.Build.0 = Release|Win32
 		{F97AD980-48B0-4C94-9662-499EFEE4AB44}.Release|x64.ActiveCfg = Release|x64
 		{F97AD980-48B0-4C94-9662-499EFEE4AB44}.Release|x64.Build.0 = Release|x64
+		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Debug|Win32.ActiveCfg = Debug|Win32
+		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Debug|Win32.Build.0 = Debug|Win32
+		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Debug|x64.ActiveCfg = Debug|x64
+		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Debug|x64.Build.0 = Debug|x64
+		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Release|Win32.ActiveCfg = Release|Win32
+		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Release|Win32.Build.0 = Release|Win32
+		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Release|x64.ActiveCfg = Release|x64
+		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

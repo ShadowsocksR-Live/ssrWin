@@ -3,8 +3,8 @@
 #include <assert.h>
 #include "resource.h"
 #include "w32taskbar.h"
+#include <privoxyexports.h>
 
-HINSTANCE hinst;
 HWND hMainDlg = NULL;
 HWND hTrayWnd = NULL;
 
@@ -23,13 +23,11 @@ int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmd
     BOOL bRet = FALSE;
     WNDCLASSW wc = { 0 };
     HACCEL hAccel;
-    HMENU hMenuTray;
+    HMENU hMenuTray, hmenu;
     HICON hIconApp;
     wchar_t WndClass[MAX_PATH] = { 0 };
     wchar_t AppName[MAX_PATH] = { 0 };
     UNREFERENCED_PARAMETER(lpszCmdLine);
-
-    hinst = hInstance;
 
     LoadStringW(hInstance, IDS_MAIN_WND_CLASS, WndClass, ARRAYSIZE(WndClass));
     RegisterWndClass(hInstance, WndClass);
@@ -39,7 +37,8 @@ int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmd
 
     {
         hMenuTray = LoadMenu(hInstance, MAKEINTRESOURCE(IDR_TRAYMENU));
-        hTrayWnd = CreateTrayWindow(hInstance, hMenuTray, hMainDlg);
+        hmenu = GetSubMenu(hMenuTray, 0);
+        hTrayWnd = CreateTrayWindow(hInstance, hmenu, hMainDlg);
 
         hIconApp = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SSRWIN));
         TrayAddIcon(hTrayWnd, TRAY_ICON_ID, hIconApp, AppName);
