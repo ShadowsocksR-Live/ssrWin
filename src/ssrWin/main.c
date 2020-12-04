@@ -10,7 +10,9 @@ HWND hTrayWnd = NULL;
 
 #define TRAY_ICON_ID 1
 
-INT_PTR CALLBACK MainDlgProc(HWND, UINT, WPARAM, LPARAM);
+ATOM RegisterWndClass(HINSTANCE hInstance, const wchar_t* szWindowClass);
+HWND InitInstance(HINSTANCE hInstance, const wchar_t* wndClass, const wchar_t* title, int nCmdShow);
+LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 static void TrayClickCb(void* p);
 static void ShowWindowSimple(HWND hWnd, BOOL bShow);
 static void RestoreWindowPos(HWND hWnd);
@@ -23,20 +25,23 @@ int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmd
     HACCEL hAccel;
     HMENU hMenuTray;
     HICON hIconApp;
+    wchar_t WndClass[MAX_PATH] = { 0 };
     wchar_t AppName[MAX_PATH] = { 0 };
     UNREFERENCED_PARAMETER(lpszCmdLine);
 
     hinst = hInstance;
 
-    hMainDlg = CreateDialogW(hInstance, MAKEINTRESOURCE(IDD_CONFIG_LIST), NULL, MainDlgProc);
-    ShowWindow(hMainDlg, nCmdShow);
+    LoadStringW(hInstance, IDS_MAIN_WND_CLASS, WndClass, ARRAYSIZE(WndClass));
+    RegisterWndClass(hInstance, WndClass);
+
+    LoadStringW(hInstance, IDS_APP_NAME, AppName, ARRAYSIZE(AppName));
+    hMainDlg = InitInstance(hInstance, WndClass, AppName, nCmdShow);
 
     {
         hMenuTray = LoadMenu(hInstance, MAKEINTRESOURCE(IDR_TRAYMENU));
         hTrayWnd = CreateTrayWindow(hInstance, hMenuTray, hMainDlg);
 
         hIconApp = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SSRWIN));
-        LoadStringW(hInstance, IDS_APP_NAME, AppName, ARRAYSIZE(AppName));
         TrayAddIcon(hTrayWnd, TRAY_ICON_ID, hIconApp, AppName);
 
         TraySetClickCallback(hTrayWnd, TrayClickCb, hMainDlg);
@@ -63,11 +68,41 @@ int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmd
     return (int)msg.wParam;
 }
 
-INT_PTR CALLBACK MainDlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
-    INT_PTR result = (INT_PTR)FALSE;
+ATOM RegisterWndClass(HINSTANCE hInstance, const wchar_t* szWindowClass)
+{
+    WNDCLASSEXW wcex;
+    wcex.cbSize = sizeof(WNDCLASSEX);
+    wcex.style          = CS_HREDRAW | CS_VREDRAW;
+    wcex.lpfnWndProc    = MainWndProc;
+    wcex.cbClsExtra     = 0;
+    wcex.cbWndExtra     = 0;
+    wcex.hInstance      = hInstance;
+    wcex.hIcon          = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SSRWIN));
+    wcex.hCursor        = LoadCursor(NULL, IDC_ARROW);
+    wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
+    wcex.lpszMenuName   = MAKEINTRESOURCEW(IDR_TRAYMENU);
+    wcex.lpszClassName  = szWindowClass;
+    wcex.hIconSm        = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SSRWIN));
+
+    return RegisterClassExW(&wcex);
+}
+
+HWND InitInstance(HINSTANCE hInstance, const wchar_t* wndClass, const wchar_t* title, int nCmdShow)
+{
+    HWND hWnd = CreateWindowW(wndClass, title, WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, NULL, NULL, hInstance, NULL);
+    if (IsWindow(hWnd)) {
+        ShowWindow(hWnd, nCmdShow);
+        UpdateWindow(hWnd);
+    }
+    return hWnd;
+}
+
+LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    BOOL passToNext = TRUE;
     switch (message)
     {
-    case WM_INITDIALOG:
+    case WM_CREATE:
         RestoreWindowPos(hWnd);
         break;
     case WM_CLOSE:
@@ -77,12 +112,12 @@ INT_PTR CALLBACK MainDlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         else {
             ShowWindowSimple(hWnd, FALSE);
         }
-        result = (INT_PTR)TRUE;
+        passToNext = FALSE;
         break;
     case WM_DESTROY:
         TrayDeleteIcon(hTrayWnd, TRAY_ICON_ID);
         PostQuitMessage(0);
-        result = (INT_PTR)TRUE;
+        passToNext = FALSE;
         break;
     case WM_COMMAND:
         switch (LOWORD(wParam))
@@ -97,7 +132,7 @@ INT_PTR CALLBACK MainDlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             SendMessageW(hWnd, WM_CLOSE, 0, 0);
             break;
         }
-        result = (INT_PTR)TRUE;
+        passToNext = FALSE;
         break;
     case WM_SYSCOMMAND:
         switch (wParam)
@@ -105,7 +140,7 @@ INT_PTR CALLBACK MainDlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         case SC_CLOSE:
         case SC_MINIMIZE:
             ShowWindowSimple(hWnd, FALSE);
-            result = (INT_PTR)TRUE;
+            passToNext = FALSE;
             break;
         }
         break;
@@ -113,7 +148,10 @@ INT_PTR CALLBACK MainDlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
     default:
         break;
     }
-    return result;
+    if (passToNext) {
+        return DefWindowProc(hWnd, message, wParam, lParam);
+    }
+    return 0;
 }
 
 static void TrayClickCb(void* p) {
