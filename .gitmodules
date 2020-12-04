@@ -2,3 +2,7 @@
 	path = depends/privoxy
 	url = https://github.com/ShadowsocksR-Live/Privoxy.git
 	branch = master
+[submodule "depends/ssr-native"]
+	path = depends/ssr-native
+	url = https://github.com/ShadowsocksR-Live/shadowsocksr-native.git
+	branch = master
