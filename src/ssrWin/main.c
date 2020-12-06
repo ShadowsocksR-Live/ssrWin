@@ -4,9 +4,13 @@
 #include "resource.h"
 #include "w32taskbar.h"
 #include <privoxyexports.h>
+#include <exe_file_path.h>
+#include "settings_json.h"
 
 HWND hMainDlg = NULL;
 HWND hTrayWnd = NULL;
+
+char settings_file[MAX_PATH] = { 0 };
 
 #define TRAY_ICON_ID 1
 
@@ -16,6 +20,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
 static void TrayClickCb(void* p);
 static void ShowWindowSimple(HWND hWnd, BOOL bShow);
 static void RestoreWindowPos(HWND hWnd);
+static void json_config_iter(struct server_config* config, void* p);
 
 int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmdLine, int nCmdShow)
 {
@@ -105,6 +110,15 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
     {
     case WM_CREATE:
         RestoreWindowPos(hWnd);
+        {
+            char *p, *tmp = exe_file_path(&malloc);
+            if (tmp && (p = strrchr(tmp, '\\'))) {
+                *p = '\0';
+                sprintf(settings_file, "%s/settings.json", tmp);
+                free(tmp);
+            }
+            parse_settings_file(settings_file, json_config_iter, hWnd);
+        }
         break;
     case WM_CLOSE:
         if (wParam == ID_CMD_EXIT) {
@@ -205,4 +219,8 @@ static void RestoreWindowPos(HWND hWnd) {
         rcOwner.top + (rc.bottom / 2),
         0, 0,          // Ignores size arguments. 
         SWP_NOSIZE);
+}
+
+static void json_config_iter(struct server_config* config, void* p) {
+    config_release(config);
 }

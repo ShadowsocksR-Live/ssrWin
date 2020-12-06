@@ -39,6 +39,9 @@
     <ClInclude Include="..\w32taskbar.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\settings_json.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="process_manager.c">
@@ -63,6 +66,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\w32taskbar.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\settings_json.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
