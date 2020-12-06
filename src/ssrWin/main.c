@@ -1,14 +1,17 @@
 #include <Windows.h>
 #include <WindowsX.h>
+#include <CommCtrl.h>
 #include <assert.h>
 #include "resource.h"
 #include "w32taskbar.h"
 #include <privoxyexports.h>
 #include <exe_file_path.h>
+#include <ssr_executive.h>
 #include "settings_json.h"
 
 HWND hMainDlg = NULL;
 HWND hTrayWnd = NULL;
+HWND hListView = NULL;
 
 char settings_file[MAX_PATH] = { 0 };
 
@@ -20,6 +23,9 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
 static void TrayClickCb(void* p);
 static void ShowWindowSimple(HWND hWnd, BOOL bShow);
 static void RestoreWindowPos(HWND hWnd);
+static HWND create_list_view(HWND hwndParent, HINSTANCE hinstance);
+BOOL InitListViewColumns(HWND hWndListView);
+
 static void json_config_iter(struct server_config* config, void* p);
 
 int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmdLine, int nCmdShow)
@@ -60,11 +66,11 @@ int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmd
             // handle the error and possibly exit
             break;
         }
-/*
+        /*
         else if (!IsWindow(hMainDlg) ||
             !IsDialogMessage(hMainDlg, &msg) ||
             !TranslateAccelerator(hMainDlg, hAccel, &msg))
-*/
+        */
         {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
@@ -78,17 +84,17 @@ ATOM RegisterWndClass(HINSTANCE hInstance, const wchar_t* szWindowClass)
 {
     WNDCLASSEXW wcex;
     wcex.cbSize = sizeof(WNDCLASSEX);
-    wcex.style          = CS_HREDRAW | CS_VREDRAW;
-    wcex.lpfnWndProc    = MainWndProc;
-    wcex.cbClsExtra     = 0;
-    wcex.cbWndExtra     = 0;
-    wcex.hInstance      = hInstance;
-    wcex.hIcon          = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SSRWIN));
-    wcex.hCursor        = LoadCursor(NULL, IDC_ARROW);
-    wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
-    wcex.lpszMenuName   = MAKEINTRESOURCEW(IDR_TRAYMENU);
-    wcex.lpszClassName  = szWindowClass;
-    wcex.hIconSm        = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SSRWIN));
+    wcex.style = CS_HREDRAW | CS_VREDRAW;
+    wcex.lpfnWndProc = MainWndProc;
+    wcex.cbClsExtra = 0;
+    wcex.cbWndExtra = 0;
+    wcex.hInstance = hInstance;
+    wcex.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SSRWIN));
+    wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wcex.lpszMenuName = MAKEINTRESOURCEW(IDR_TRAYMENU);
+    wcex.lpszClassName = szWindowClass;
+    wcex.hIconSm = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SSRWIN));
 
     return RegisterClassExW(&wcex);
 }
@@ -106,18 +112,29 @@ HWND InitInstance(HINSTANCE hInstance, const wchar_t* wndClass, const wchar_t* t
 
 LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     BOOL passToNext = TRUE;
+    LPCREATESTRUCTW pcs = NULL;
     switch (message)
     {
     case WM_CREATE:
+        pcs = (LPCREATESTRUCTW)lParam;
         RestoreWindowPos(hWnd);
+        hListView = create_list_view(hWnd, pcs->hInstance);
+        InitListViewColumns(hListView);
         {
-            char *p, *tmp = exe_file_path(&malloc);
+            char* p, * tmp = exe_file_path(&malloc);
             if (tmp && (p = strrchr(tmp, '\\'))) {
                 *p = '\0';
                 sprintf(settings_file, "%s/settings.json", tmp);
                 free(tmp);
             }
             parse_settings_file(settings_file, json_config_iter, hWnd);
+        }
+        break;
+    case WM_SIZE:
+        if (hListView) {
+            RECT rc = { 0 };
+            GetClientRect(hWnd, &rc);
+            SetWindowPos(hListView, NULL, rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, SWP_NOZORDER);
         }
         break;
     case WM_CLOSE:
@@ -130,6 +147,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         passToNext = FALSE;
         break;
     case WM_DESTROY:
+        DestroyWindow(hListView);
         TrayDeleteIcon(hTrayWnd, TRAY_ICON_ID);
         PostQuitMessage(0);
         passToNext = FALSE;
@@ -220,6 +238,64 @@ static void RestoreWindowPos(HWND hWnd) {
         0, 0,          // Ignores size arguments. 
         SWP_NOSIZE);
 }
+
+static HWND create_list_view(HWND hwndParent, HINSTANCE hinstance)
+{
+#pragma comment(lib, "Comctl32.lib")
+    RECT rcClient = { 0 };
+    HWND hWndListView;
+
+    INITCOMMONCONTROLSEX icex = { 0 };
+    icex.dwICC = ICC_LISTVIEW_CLASSES;
+    InitCommonControlsEx(&icex);
+
+    GetClientRect(hwndParent, &rcClient);
+
+    // Create the list-view window in report view with label editing enabled.
+    hWndListView = CreateWindowW(WC_LISTVIEWW, L"",
+        WS_CHILD | WS_VISIBLE | LVS_REPORT | LVS_EDITLABELS,
+        0, 0, rcClient.right - rcClient.left, rcClient.bottom - rcClient.top,
+        hwndParent,
+        NULL, // (HMENU)IDM_CODE_SAMPLES,
+        hinstance,
+        NULL);
+
+    return hWndListView;
+}
+
+BOOL InitListViewColumns(HWND hWndListView)
+{
+    struct columm_info {
+        wchar_t* name;
+        int fmt;
+        int width;
+    } columns[] = {
+        { L"Remarks", LVCFMT_LEFT, 100, },
+        { L"Server ip", LVCFMT_LEFT, 200, },
+        { L"Server port", LVCFMT_RIGHT, 80, },
+        { L"Method", LVCFMT_RIGHT, 150, },
+        { L"Password", LVCFMT_RIGHT, 200, },
+    };
+
+    LVCOLUMNW lvc = { 0 };
+    int iCol;
+
+    lvc.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
+
+    for (iCol = 0; iCol < ARRAYSIZE(columns); iCol++) {
+        lvc.iSubItem = iCol;
+        lvc.pszText = columns[iCol].name;
+        lvc.cx = columns[iCol].width;
+        lvc.fmt = columns[iCol].fmt;
+        // Insert the columns into the list view.
+        if (ListView_InsertColumn(hWndListView, iCol, &lvc) == -1) {
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+}
+
 
 static void json_config_iter(struct server_config* config, void* p) {
     config_release(config);
