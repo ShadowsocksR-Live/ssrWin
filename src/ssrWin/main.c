@@ -121,6 +121,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
     case WM_CREATE:
         assert(wnd_data == NULL);
         wnd_data = (struct main_wnd_data*) calloc(1, sizeof(*wnd_data));
+        SetWindowLongPtrW(hWnd, GWLP_USERDATA, (LONG_PTR)wnd_data);
         wnd_data->hMainDlg = hWnd;
         pcs = (LPCREATESTRUCTW)lParam;
         RestoreWindowPos(hWnd);
@@ -135,7 +136,6 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             }
             parse_settings_file(wnd_data->settings_file, json_config_iter, wnd_data);
         }
-        SetWindowLongPtrW(hWnd, GWLP_USERDATA, (LONG)wnd_data);
 
         break;
     case WM_SIZE:
