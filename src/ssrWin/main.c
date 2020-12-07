@@ -274,12 +274,14 @@ static HWND create_list_view(HWND hwndParent, HINSTANCE hinstance)
 
     // Create the list-view window in report view with label editing enabled.
     hWndListView = CreateWindowW(WC_LISTVIEWW, L"",
-        WS_CHILD | WS_VISIBLE | LVS_REPORT | LVS_EDITLABELS,
+        WS_CHILD | WS_VISIBLE | LVS_REPORT,
         0, 0, rcClient.right - rcClient.left, rcClient.bottom - rcClient.top,
         hwndParent,
         NULL, // (HMENU)IDM_CODE_SAMPLES,
         hinstance,
         NULL);
+
+    SendMessage(hWndListView, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, LVS_EX_FULLROWSELECT);
 
     return hWndListView;
 }
