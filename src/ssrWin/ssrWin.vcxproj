@@ -146,6 +146,7 @@
     <ClInclude Include="..\last_error_to_string.h" />
     <ClInclude Include="..\net_adapter_enum.h" />
     <ClInclude Include="..\server_connectivity.h" />
+    <ClInclude Include="..\utf8_to_wchar.h" />
     <ClInclude Include="..\w32taskbar.h" />
     <ClInclude Include="checkablegroupbox.h" />
     <ClInclude Include="process_manager.h" />
@@ -157,6 +158,7 @@
     <ClCompile Include="..\last_error_to_string.c" />
     <ClCompile Include="..\net_adapter_enum.c" />
     <ClCompile Include="..\server_connectivity.c" />
+    <ClCompile Include="..\utf8_to_wchar.c" />
     <ClCompile Include="..\w32taskbar.c" />
     <ClCompile Include="checkablegroupbox.c" />
     <ClCompile Include="main.c" />

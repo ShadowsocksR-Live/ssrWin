@@ -1,5 +1,6 @@
 #include <Windows.h>
 #include <WindowsX.h>
+#include <tchar.h>
 #include <CommCtrl.h>
 #include <assert.h>
 #include "resource.h"
@@ -8,6 +9,7 @@
 #include <exe_file_path.h>
 #include <ssr_executive.h>
 #include "settings_json.h"
+#include "utf8_to_wchar.h"
 
 HWND hTrayWnd = NULL;
 
@@ -27,6 +29,8 @@ static void ShowWindowSimple(HWND hWnd, BOOL bShow);
 static void RestoreWindowPos(HWND hWnd);
 static HWND create_list_view(HWND hwndParent, HINSTANCE hinstance);
 BOOL InitListViewColumns(HWND hWndListView);
+BOOL InsertListViewItem(HWND hWndListView, int index, struct server_config* config);
+BOOL handle_WM_NOTIFY(HWND hWnd, WPARAM wParam, LPARAM lParam);
 
 static void json_config_iter(struct server_config* config, void* p);
 
@@ -111,6 +115,11 @@ HWND InitInstance(HINSTANCE hInstance, const wchar_t* wndClass, const wchar_t* t
     return hWnd;
 }
 
+struct json_iter_data {
+    struct main_wnd_data* wnd_data;
+    int index;
+};
+
 LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     struct main_wnd_data* wnd_data = NULL;
     BOOL passToNext = TRUE;
@@ -128,13 +137,14 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         wnd_data->hListView = create_list_view(hWnd, pcs->hInstance);
         InitListViewColumns(wnd_data->hListView);
         {
+            struct json_iter_data iter_data = { wnd_data, 0 };
             char* p, * tmp = exe_file_path(&malloc);
             if (tmp && (p = strrchr(tmp, '\\'))) {
                 *p = '\0';
                 sprintf(wnd_data->settings_file, "%s/settings.json", tmp);
                 free(tmp);
             }
-            parse_settings_file(wnd_data->settings_file, json_config_iter, wnd_data);
+            parse_settings_file(wnd_data->settings_file, json_config_iter, &iter_data);
         }
 
         break;
@@ -186,7 +196,9 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             break;
         }
         break;
-
+    case WM_NOTIFY:
+        passToNext = (handle_WM_NOTIFY(hWnd, wParam, lParam) == FALSE);
+        break;
     default:
         break;
     }
@@ -282,15 +294,15 @@ BOOL InitListViewColumns(HWND hWndListView)
         { L"Remarks", LVCFMT_LEFT, 100, },
         { L"Server Address", LVCFMT_LEFT, 200, },
         { L"Server Port", LVCFMT_RIGHT, 80, },
-        { L"Method", LVCFMT_LEFT, 150, },
-        { L"Password", LVCFMT_LEFT, 200, },
+        { L"Method", LVCFMT_LEFT, 100, },
+        { L"Password", LVCFMT_LEFT, 230, },
         { L"Protocol", LVCFMT_LEFT, 150, },
         { L"Protocol Param", LVCFMT_LEFT, 150, },
         { L"Obfs", LVCFMT_LEFT, 150, },
         { L"Obfs Param", LVCFMT_LEFT, 150, },
         { L"SSRoT Enable", LVCFMT_LEFT, 100, },
         { L"SSRoT Domain", LVCFMT_LEFT, 200, },
-        { L"SSRoT Path", LVCFMT_LEFT, 200, },
+        { L"SSRoT Path", LVCFMT_LEFT, 250, },
     };
 
     LVCOLUMNW lvc = { 0 };
@@ -312,7 +324,102 @@ BOOL InitListViewColumns(HWND hWndListView)
     return TRUE;
 }
 
+BOOL InsertListViewItem(HWND hWndListView, int index, struct server_config* config)
+{
+    LVITEMW lvI = { 0 };
+
+    // Initialize LVITEM members that are common to all items.
+    lvI.mask      = LVIF_TEXT | LVIF_IMAGE | LVIF_STATE | LVIF_PARAM;
+    lvI.pszText   = LPSTR_TEXTCALLBACKW; // Sends an LVN_GETDISPINFO message.
+    lvI.iItem  = index;
+    lvI.iImage = index;
+    lvI.lParam = (LPARAM)config;
+
+    // Insert items into the list.
+    if (ListView_InsertItem(hWndListView, &lvI) == -1) {
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+BOOL handle_WM_NOTIFY(HWND hWnd, WPARAM wParam, LPARAM lParam)
+{
+    BOOL msgHandled = FALSE;
+    NMLVDISPINFOW* plvdi;
+    struct server_config* config;
+    int cchTextMax;
+    LPWSTR pszText;
+    wchar_t tmp[MAX_PATH] = { 0 };
+    switch (((LPNMHDR) lParam)->code)
+    {
+    case LVN_GETDISPINFO:
+        plvdi = (NMLVDISPINFOW*)lParam;
+        config = (struct server_config*)plvdi->item.lParam;
+        pszText = plvdi->item.pszText;
+        cchTextMax = plvdi->item.cchTextMax;
+        switch (plvdi->item.iSubItem)
+        {
+        case 0:
+            // L"Remarks"
+            lstrcpynW(pszText, utf8_to_wchar_string(config->remarks, tmp, ARRAYSIZE(tmp)), cchTextMax);
+            break;
+        case 1:
+            // L"Server Address"
+            lstrcpynW(pszText, utf8_to_wchar_string(config->remote_host, tmp, ARRAYSIZE(tmp)), cchTextMax);
+            break;
+        case 2:
+            // L"Server Port"
+            wsprintfW(pszText, L"%d", (int)config->remote_port);
+            break;
+        case 3:
+            // L"Method"
+            lstrcpynW(pszText, utf8_to_wchar_string(config->method, tmp, ARRAYSIZE(tmp)), cchTextMax);
+            break;
+        case 4:
+            // L"Password"
+            lstrcpynW(pszText, utf8_to_wchar_string(config->password, tmp, ARRAYSIZE(tmp)), cchTextMax);
+            break;
+        case 5:
+            // L"Protocol"
+            lstrcpynW(pszText, utf8_to_wchar_string(config->protocol, tmp, ARRAYSIZE(tmp)), cchTextMax);
+            break;
+        case 6:
+            // L"Protocol Param"
+            lstrcpynW(pszText, utf8_to_wchar_string(config->protocol_param, tmp, ARRAYSIZE(tmp)), cchTextMax);
+            break;
+        case 7:
+            // L"Obfs"
+            lstrcpynW(pszText, utf8_to_wchar_string(config->obfs, tmp, ARRAYSIZE(tmp)), cchTextMax);
+            break;
+        case 8:
+            // L"Obfs Param"
+            lstrcpynW(pszText, utf8_to_wchar_string(config->obfs_param, tmp, ARRAYSIZE(tmp)), cchTextMax);
+            break;
+        case 9:
+            // L"SSRoT Enable"
+            lstrcpynW(pszText, config->over_tls_enable?L"True":L"False", cchTextMax);
+            break;
+        case 10:
+            // L"SSRoT Domain"
+            lstrcpynW(pszText, utf8_to_wchar_string(config->over_tls_server_domain, tmp, ARRAYSIZE(tmp)), cchTextMax);
+            break;
+        case 11:
+            // L"SSRoT Path"
+            lstrcpynW(pszText, utf8_to_wchar_string(config->over_tls_path, tmp, ARRAYSIZE(tmp)), cchTextMax);
+            break;
+        default:
+            break;
+        }
+        msgHandled = TRUE;
+        break;
+    }
+    return msgHandled;
+}
 
 static void json_config_iter(struct server_config* config, void* p) {
-    config_release(config);
+    struct json_iter_data *iter_data = (struct json_iter_data*)p;
+    InsertListViewItem(iter_data->wnd_data->hListView, iter_data->index, config);
+    ++iter_data->index;
+    //config_release(config);
 }

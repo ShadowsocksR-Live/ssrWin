@@ -42,6 +42,9 @@
     <ClInclude Include="..\settings_json.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\utf8_to_wchar.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="process_manager.c">
@@ -69,6 +72,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\settings_json.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\utf8_to_wchar.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
