@@ -9,11 +9,13 @@
 #include <ssr_executive.h>
 #include "settings_json.h"
 
-HWND hMainDlg = NULL;
 HWND hTrayWnd = NULL;
-HWND hListView = NULL;
 
-char settings_file[MAX_PATH] = { 0 };
+struct main_wnd_data {
+    HWND hMainDlg;
+    HWND hListView;
+    char settings_file[MAX_PATH];
+};
 
 #define TRAY_ICON_ID 1
 
@@ -30,6 +32,7 @@ static void json_config_iter(struct server_config* config, void* p);
 
 int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmdLine, int nCmdShow)
 {
+    HWND hMainDlg;
     MSG msg = { 0 };
     BOOL bRet = FALSE;
     WNDCLASSW wc = { 0 };
@@ -109,30 +112,37 @@ HWND InitInstance(HINSTANCE hInstance, const wchar_t* wndClass, const wchar_t* t
 }
 
 LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    struct main_wnd_data* wnd_data = NULL;
     BOOL passToNext = TRUE;
     LPCREATESTRUCTW pcs = NULL;
+    wnd_data = (struct main_wnd_data*)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
     switch (message)
     {
     case WM_CREATE:
+        assert(wnd_data == NULL);
+        wnd_data = (struct main_wnd_data*) calloc(1, sizeof(*wnd_data));
+        wnd_data->hMainDlg = hWnd;
         pcs = (LPCREATESTRUCTW)lParam;
         RestoreWindowPos(hWnd);
-        hListView = create_list_view(hWnd, pcs->hInstance);
-        InitListViewColumns(hListView);
+        wnd_data->hListView = create_list_view(hWnd, pcs->hInstance);
+        InitListViewColumns(wnd_data->hListView);
         {
             char* p, * tmp = exe_file_path(&malloc);
             if (tmp && (p = strrchr(tmp, '\\'))) {
                 *p = '\0';
-                sprintf(settings_file, "%s/settings.json", tmp);
+                sprintf(wnd_data->settings_file, "%s/settings.json", tmp);
                 free(tmp);
             }
-            parse_settings_file(settings_file, json_config_iter, hWnd);
+            parse_settings_file(wnd_data->settings_file, json_config_iter, wnd_data);
         }
+        SetWindowLongPtrW(hWnd, GWLP_USERDATA, (LONG)wnd_data);
+
         break;
     case WM_SIZE:
-        if (hListView) {
+        if (wnd_data->hListView) {
             RECT rc = { 0 };
             GetClientRect(hWnd, &rc);
-            SetWindowPos(hListView, NULL, rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, SWP_NOZORDER);
+            SetWindowPos(wnd_data->hListView, NULL, rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, SWP_NOZORDER);
         }
         break;
     case WM_CLOSE:
@@ -145,10 +155,11 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         passToNext = FALSE;
         break;
     case WM_DESTROY:
-        DestroyWindow(hListView);
+        DestroyWindow(wnd_data->hListView);
         TrayDeleteIcon(hTrayWnd, TRAY_ICON_ID);
         PostQuitMessage(0);
         passToNext = FALSE;
+        free(wnd_data);
         break;
     case WM_COMMAND:
         switch (LOWORD(wParam))
