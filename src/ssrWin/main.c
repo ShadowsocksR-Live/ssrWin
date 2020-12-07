@@ -269,10 +269,17 @@ BOOL InitListViewColumns(HWND hWndListView)
         int width;
     } columns[] = {
         { L"Remarks", LVCFMT_LEFT, 100, },
-        { L"Server ip", LVCFMT_LEFT, 200, },
-        { L"Server port", LVCFMT_RIGHT, 80, },
-        { L"Method", LVCFMT_RIGHT, 150, },
-        { L"Password", LVCFMT_RIGHT, 200, },
+        { L"Server Address", LVCFMT_LEFT, 200, },
+        { L"Server Port", LVCFMT_RIGHT, 80, },
+        { L"Method", LVCFMT_LEFT, 150, },
+        { L"Password", LVCFMT_LEFT, 200, },
+        { L"Protocol", LVCFMT_LEFT, 150, },
+        { L"Protocol Param", LVCFMT_LEFT, 150, },
+        { L"Obfs", LVCFMT_LEFT, 150, },
+        { L"Obfs Param", LVCFMT_LEFT, 150, },
+        { L"SSRoT Enable", LVCFMT_LEFT, 100, },
+        { L"SSRoT Domain", LVCFMT_LEFT, 200, },
+        { L"SSRoT Path", LVCFMT_LEFT, 200, },
     };
 
     LVCOLUMNW lvc = { 0 };
