@@ -31,7 +31,7 @@ static void RestoreWindowPos(HWND hWnd);
 static HWND create_list_view(HWND hwndParent, HINSTANCE hinstance);
 BOOL InitListViewColumns(HWND hWndListView);
 BOOL InsertListViewItem(HWND hWndListView, int index, struct server_config* config);
-BOOL handle_WM_NOTIFY(HWND hWnd, WPARAM wParam, LPARAM lParam);
+BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, WPARAM wParam, LPARAM lParam);
 
 static void json_config_iter(struct server_config* config, void* p);
 
@@ -198,7 +198,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         }
         break;
     case WM_NOTIFY:
-        passToNext = (handle_WM_NOTIFY(hWnd, wParam, lParam) == FALSE);
+        passToNext = (handle_WM_NOTIFY_from_list_view(hWnd, wParam, lParam) == FALSE);
         break;
     default:
         break;
@@ -346,7 +346,7 @@ BOOL InsertListViewItem(HWND hWndListView, int index, struct server_config* conf
     return TRUE;
 }
 
-BOOL handle_WM_NOTIFY(HWND hWnd, WPARAM wParam, LPARAM lParam)
+BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, WPARAM wParam, LPARAM lParam)
 {
     BOOL msgHandled = FALSE;
     NMLVDISPINFOW* plvdi;
@@ -425,6 +425,7 @@ BOOL handle_WM_NOTIFY(HWND hWnd, WPARAM wParam, LPARAM lParam)
         pnmlv = (LPNMLISTVIEW) lParam;
         config = (struct server_config*) pnmlv->lParam;
         config_release(config);
+        msgHandled = TRUE;
         break;
     default:
         break;
