@@ -447,8 +447,12 @@ BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, WPARAM wParam, LPARAM lParam)
                 break;
             }
             hInstance = (HINSTANCE)GetWindowLongPtrW(hWnd, GWLP_HINSTANCE);
-            DialogBoxParamW(hInstance, MAKEINTRESOURCEW(IDD_CONFIG_DETAILS),
-                hWnd, ConfigDetailsDlgProc, (LPARAM)config);
+            if (IDOK == DialogBoxParamW(hInstance,
+                MAKEINTRESOURCEW(IDD_CONFIG_DETAILS),
+                hWnd, ConfigDetailsDlgProc, (LPARAM)config))
+            {
+                ListView_RedrawItems(hWndList, nIndex, nIndex);
+            }
         }
         break;
     default:
@@ -459,21 +463,27 @@ BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, WPARAM wParam, LPARAM lParam)
 
 static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, LPARAM lParam)
 {
-    struct server_config* config;
+    static struct server_config* config;
     switch (uMessage)
     {
     case WM_INITDIALOG:
         RestoreWindowPos(hDlg);
         config = (struct server_config*)lParam;
+        if (config) {
+
+        }
         return TRUE;
     case WM_COMMAND:
         switch (wParam)
         {
         case IDOK:
-            EndDialog(hDlg, IDOK);
-            break;
+            if (config) {
+
+            }
+            // fall through.
         case IDCANCEL:
-            EndDialog(hDlg, IDCANCEL);
+            config = NULL;
+            EndDialog(hDlg, wParam);
             break;
         }
         return TRUE;
