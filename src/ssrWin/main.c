@@ -20,6 +20,7 @@ struct main_wnd_data {
 };
 
 #define TRAY_ICON_ID 1
+#define LIST_VIEW_ID 55
 
 ATOM RegisterWndClass(HINSTANCE hInstance, const wchar_t* szWindowClass);
 HWND InitInstance(HINSTANCE hInstance, const wchar_t* wndClass, const wchar_t* title, int nCmdShow);
@@ -277,7 +278,7 @@ static HWND create_list_view(HWND hwndParent, HINSTANCE hinstance)
         WS_CHILD | WS_VISIBLE | LVS_REPORT,
         0, 0, rcClient.right - rcClient.left, rcClient.bottom - rcClient.top,
         hwndParent,
-        NULL, // (HMENU)IDM_CODE_SAMPLES,
+        (HMENU)LIST_VIEW_ID,
         hinstance,
         NULL);
 
@@ -349,11 +350,16 @@ BOOL handle_WM_NOTIFY(HWND hWnd, WPARAM wParam, LPARAM lParam)
 {
     BOOL msgHandled = FALSE;
     NMLVDISPINFOW* plvdi;
+    LPNMLISTVIEW pnmlv;
+    LPNMHDR lpnmHdr = (LPNMHDR)lParam;
     struct server_config* config;
     int cchTextMax;
     LPWSTR pszText;
     wchar_t tmp[MAX_PATH] = { 0 };
-    switch (((LPNMHDR) lParam)->code)
+    if (lpnmHdr->idFrom != LIST_VIEW_ID) {
+        return FALSE;
+    }
+    switch (lpnmHdr->code)
     {
     case LVN_GETDISPINFO:
         plvdi = (NMLVDISPINFOW*)lParam;
@@ -415,6 +421,13 @@ BOOL handle_WM_NOTIFY(HWND hWnd, WPARAM wParam, LPARAM lParam)
         }
         msgHandled = TRUE;
         break;
+    case LVN_DELETEITEM:
+        pnmlv = (LPNMLISTVIEW) lParam;
+        config = (struct server_config*) pnmlv->lParam;
+        config_release(config);
+        break;
+    default:
+        break;
     }
     return msgHandled;
 }
@@ -423,5 +436,4 @@ static void json_config_iter(struct server_config* config, void* p) {
     struct json_iter_data *iter_data = (struct json_iter_data*)p;
     InsertListViewItem(iter_data->wnd_data->hListView, iter_data->index, config);
     ++iter_data->index;
-    //config_release(config);
 }
