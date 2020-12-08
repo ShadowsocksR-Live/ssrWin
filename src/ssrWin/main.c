@@ -34,6 +34,7 @@ static HWND create_list_view(HWND hwndParent, HINSTANCE hinstance);
 BOOL InitListViewColumns(HWND hWndListView);
 BOOL InsertListViewItem(HWND hWndListView, int index, struct server_config* config);
 BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, WPARAM wParam, LPARAM lParam);
+static void on_list_view_notification_get_disp_info(NMLVDISPINFOW* plvdi, const struct server_config* config);
 static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, LPARAM lParam);
 static void config_dlg_init(HWND hDlg);
 static void load_config_to_dlg(HWND hDlg, const struct server_config* config);
@@ -361,9 +362,7 @@ BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, WPARAM wParam, LPARAM lParam)
     LPNMHDR lpnmHdr = (LPNMHDR)lParam;
     HWND hWndList;
     struct server_config* config;
-    int cchTextMax;
     int nIndex;
-    LPWSTR pszText;
     wchar_t tmp[MAX_PATH] = { 0 };
     if (lpnmHdr->idFrom != LIST_VIEW_ID) {
         return FALSE;
@@ -374,61 +373,7 @@ BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, WPARAM wParam, LPARAM lParam)
     case LVN_GETDISPINFO:
         plvdi = (NMLVDISPINFOW*)lParam;
         config = (struct server_config*)plvdi->item.lParam;
-        pszText = plvdi->item.pszText;
-        cchTextMax = plvdi->item.cchTextMax;
-        switch (plvdi->item.iSubItem)
-        {
-        case 0:
-            // L"Remarks"
-            lstrcpynW(pszText, utf8_to_wchar_string(config->remarks, tmp, ARRAYSIZE(tmp)), cchTextMax);
-            break;
-        case 1:
-            // L"Server Address"
-            lstrcpynW(pszText, utf8_to_wchar_string(config->remote_host, tmp, ARRAYSIZE(tmp)), cchTextMax);
-            break;
-        case 2:
-            // L"Server Port"
-            wsprintfW(pszText, L"%d", (int)config->remote_port);
-            break;
-        case 3:
-            // L"Method"
-            lstrcpynW(pszText, utf8_to_wchar_string(config->method, tmp, ARRAYSIZE(tmp)), cchTextMax);
-            break;
-        case 4:
-            // L"Password"
-            lstrcpynW(pszText, utf8_to_wchar_string(config->password, tmp, ARRAYSIZE(tmp)), cchTextMax);
-            break;
-        case 5:
-            // L"Protocol"
-            lstrcpynW(pszText, utf8_to_wchar_string(config->protocol, tmp, ARRAYSIZE(tmp)), cchTextMax);
-            break;
-        case 6:
-            // L"Protocol Param"
-            lstrcpynW(pszText, utf8_to_wchar_string(config->protocol_param, tmp, ARRAYSIZE(tmp)), cchTextMax);
-            break;
-        case 7:
-            // L"Obfs"
-            lstrcpynW(pszText, utf8_to_wchar_string(config->obfs, tmp, ARRAYSIZE(tmp)), cchTextMax);
-            break;
-        case 8:
-            // L"Obfs Param"
-            lstrcpynW(pszText, utf8_to_wchar_string(config->obfs_param, tmp, ARRAYSIZE(tmp)), cchTextMax);
-            break;
-        case 9:
-            // L"SSRoT Enable"
-            lstrcpynW(pszText, config->over_tls_enable ? L"True" : L"False", cchTextMax);
-            break;
-        case 10:
-            // L"SSRoT Domain"
-            lstrcpynW(pszText, utf8_to_wchar_string(config->over_tls_server_domain, tmp, ARRAYSIZE(tmp)), cchTextMax);
-            break;
-        case 11:
-            // L"SSRoT Path"
-            lstrcpynW(pszText, utf8_to_wchar_string(config->over_tls_path, tmp, ARRAYSIZE(tmp)), cchTextMax);
-            break;
-        default:
-            break;
-        }
+        on_list_view_notification_get_disp_info(plvdi, config);
         msgHandled = TRUE;
         break;
     case LVN_DELETEITEM:
@@ -465,6 +410,66 @@ BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, WPARAM wParam, LPARAM lParam)
         break;
     }
     return msgHandled;
+}
+
+static void on_list_view_notification_get_disp_info(NMLVDISPINFOW* plvdi, const struct server_config* config)
+{
+    LPWSTR pszText = plvdi->item.pszText;
+    int cchTextMax = plvdi->item.cchTextMax;
+    wchar_t tmp[MAX_PATH] = { 0 };
+    switch (plvdi->item.iSubItem)
+    {
+    case 0:
+        // L"Remarks"
+        lstrcpynW(pszText, utf8_to_wchar_string(config->remarks, tmp, ARRAYSIZE(tmp)), cchTextMax);
+        break;
+    case 1:
+        // L"Server Address"
+        lstrcpynW(pszText, utf8_to_wchar_string(config->remote_host, tmp, ARRAYSIZE(tmp)), cchTextMax);
+        break;
+    case 2:
+        // L"Server Port"
+        wsprintfW(pszText, L"%d", (int)config->remote_port);
+        break;
+    case 3:
+        // L"Method"
+        lstrcpynW(pszText, utf8_to_wchar_string(config->method, tmp, ARRAYSIZE(tmp)), cchTextMax);
+        break;
+    case 4:
+        // L"Password"
+        lstrcpynW(pszText, utf8_to_wchar_string(config->password, tmp, ARRAYSIZE(tmp)), cchTextMax);
+        break;
+    case 5:
+        // L"Protocol"
+        lstrcpynW(pszText, utf8_to_wchar_string(config->protocol, tmp, ARRAYSIZE(tmp)), cchTextMax);
+        break;
+    case 6:
+        // L"Protocol Param"
+        lstrcpynW(pszText, utf8_to_wchar_string(config->protocol_param, tmp, ARRAYSIZE(tmp)), cchTextMax);
+        break;
+    case 7:
+        // L"Obfs"
+        lstrcpynW(pszText, utf8_to_wchar_string(config->obfs, tmp, ARRAYSIZE(tmp)), cchTextMax);
+        break;
+    case 8:
+        // L"Obfs Param"
+        lstrcpynW(pszText, utf8_to_wchar_string(config->obfs_param, tmp, ARRAYSIZE(tmp)), cchTextMax);
+        break;
+    case 9:
+        // L"SSRoT Enable"
+        lstrcpynW(pszText, config->over_tls_enable ? L"True" : L"False", cchTextMax);
+        break;
+    case 10:
+        // L"SSRoT Domain"
+        lstrcpynW(pszText, utf8_to_wchar_string(config->over_tls_server_domain, tmp, ARRAYSIZE(tmp)), cchTextMax);
+        break;
+    case 11:
+        // L"SSRoT Path"
+        lstrcpynW(pszText, utf8_to_wchar_string(config->over_tls_path, tmp, ARRAYSIZE(tmp)), cchTextMax);
+        break;
+    default:
+        break;
+    }
 }
 
 static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, LPARAM lParam)
