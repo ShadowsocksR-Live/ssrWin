@@ -8,8 +8,10 @@
 #include <privoxyexports.h>
 #include <exe_file_path.h>
 #include <ssr_executive.h>
+#include <ssr_cipher_names.h>
 #include "settings_json.h"
 #include "utf8_to_wchar.h"
+#include "checkablegroupbox.h"
 
 HWND hTrayWnd = NULL;
 
@@ -33,6 +35,7 @@ BOOL InitListViewColumns(HWND hWndListView);
 BOOL InsertListViewItem(HWND hWndListView, int index, struct server_config* config);
 BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, WPARAM wParam, LPARAM lParam);
 static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, LPARAM lParam);
+static void combo_box_set_cur_sel(HWND hCombo, const wchar_t* cur_sel);
 
 static void json_config_iter(struct server_config* config, void* p);
 
@@ -131,7 +134,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
     {
     case WM_CREATE:
         assert(wnd_data == NULL);
-        wnd_data = (struct main_wnd_data*) calloc(1, sizeof(*wnd_data));
+        wnd_data = (struct main_wnd_data*)calloc(1, sizeof(*wnd_data));
         SetWindowLongPtrW(hWnd, GWLP_USERDATA, (LONG_PTR)wnd_data);
         wnd_data->hMainDlg = hWnd;
         pcs = (LPCREATESTRUCTW)lParam;
@@ -333,9 +336,9 @@ BOOL InsertListViewItem(HWND hWndListView, int index, struct server_config* conf
     LVITEMW lvI = { 0 };
 
     // Initialize LVITEM members that are common to all items.
-    lvI.mask      = LVIF_TEXT | LVIF_IMAGE | LVIF_STATE | LVIF_PARAM;
-    lvI.pszText   = LPSTR_TEXTCALLBACKW; // Sends an LVN_GETDISPINFO message.
-    lvI.iItem  = index;
+    lvI.mask = LVIF_TEXT | LVIF_IMAGE | LVIF_STATE | LVIF_PARAM;
+    lvI.pszText = LPSTR_TEXTCALLBACKW; // Sends an LVN_GETDISPINFO message.
+    lvI.iItem = index;
     lvI.iImage = index;
     lvI.lParam = (LPARAM)config;
 
@@ -410,7 +413,7 @@ BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, WPARAM wParam, LPARAM lParam)
             break;
         case 9:
             // L"SSRoT Enable"
-            lstrcpynW(pszText, config->over_tls_enable?L"True":L"False", cchTextMax);
+            lstrcpynW(pszText, config->over_tls_enable ? L"True" : L"False", cchTextMax);
             break;
         case 10:
             // L"SSRoT Domain"
@@ -426,8 +429,8 @@ BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, WPARAM wParam, LPARAM lParam)
         msgHandled = TRUE;
         break;
     case LVN_DELETEITEM:
-        pnmlv = (LPNMLISTVIEW) lParam;
-        config = (struct server_config*) pnmlv->lParam;
+        pnmlv = (LPNMLISTVIEW)lParam;
+        config = (struct server_config*)pnmlv->lParam;
         config_release(config);
         msgHandled = TRUE;
         break;
@@ -442,7 +445,7 @@ BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, WPARAM wParam, LPARAM lParam)
             if (ListView_GetItem(hWndList, &item) == FALSE) {
                 break;
             }
-            config = (struct server_config*) item.lParam;
+            config = (struct server_config*)item.lParam;
             if (config == NULL) {
                 break;
             }
@@ -467,18 +470,89 @@ static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wP
     switch (uMessage)
     {
     case WM_INITDIALOG:
+    {
+        wchar_t tmp[MAX_PATH] = { 0 };
+
+        HWND hMethod = GetDlgItem(hDlg, IDC_CMB_ENCRYPTION);
+        HWND hProtocol = GetDlgItem(hDlg, IDC_CMB_PROTOCOL);
+        HWND hObfs = GetDlgItem(hDlg, IDC_CMB_OBFS);
+        HWND hOtEnable = GetDlgItem(hDlg, IDC_STC_OT_ENABLE);
+
+        enum ss_cipher_type iterMethod = ss_cipher_none;
+        enum ssr_protocol iterProtocol = ssr_protocol_origin;
+        enum ssr_obfs iterObfs = ssr_obfs_plain;
+
+        for (iterMethod = ss_cipher_none; iterMethod < ss_cipher_max; ++iterMethod) {
+            const char* name = ss_cipher_name_of_type(iterMethod);
+            if (name) {
+                utf8_to_wchar_string(name, tmp, ARRAYSIZE(tmp));
+                ComboBox_AddString(hMethod, tmp);
+            }
+        }
+
+        for (iterProtocol = ssr_protocol_origin; iterProtocol < ssr_protocol_max; ++iterProtocol) {
+            const char* name = ssr_protocol_name_of_type(iterProtocol);
+            if (name) {
+                utf8_to_wchar_string(name, tmp, ARRAYSIZE(tmp));
+                ComboBox_AddString(hProtocol, tmp);
+            }
+        }
+
+        for (iterObfs = ssr_obfs_plain; iterObfs < ssr_obfs_max; ++iterObfs) {
+            const char* name = ssr_obfs_name_of_type(iterObfs);
+            if (name) {
+                utf8_to_wchar_string(name, tmp, ARRAYSIZE(tmp));
+                ComboBox_AddString(hObfs, tmp);
+            }
+        }
+
+        CheckableGroupBox_SubclassWindow(hOtEnable);
+
         RestoreWindowPos(hDlg);
         config = (struct server_config*)lParam;
         if (config) {
+            utf8_to_wchar_string(config->remote_host, tmp, ARRAYSIZE(tmp));
+            SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_SERVER_ADDR), tmp);
 
+            wsprintfW(tmp, L"%d", (int)config->remote_port);
+            SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_SERVER_PORT), tmp);
+
+            utf8_to_wchar_string(config->password, tmp, ARRAYSIZE(tmp));
+            SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_PASSWORD), tmp);
+
+            utf8_to_wchar_string(config->method, tmp, ARRAYSIZE(tmp));
+            combo_box_set_cur_sel(hMethod, tmp);
+
+            utf8_to_wchar_string(config->protocol, tmp, ARRAYSIZE(tmp));
+            combo_box_set_cur_sel(hProtocol, tmp);
+
+            utf8_to_wchar_string(config->protocol_param, tmp, ARRAYSIZE(tmp));
+            SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_PROTOCOL_PARAM), tmp);
+
+            utf8_to_wchar_string(config->obfs, tmp, ARRAYSIZE(tmp));
+            combo_box_set_cur_sel(hObfs, tmp);
+
+            utf8_to_wchar_string(config->obfs_param, tmp, ARRAYSIZE(tmp));
+            SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_OBFS_PARAM), tmp);
+
+            Button_SetCheck(hOtEnable, config->over_tls_enable ? TRUE : FALSE);
+
+            utf8_to_wchar_string(config->over_tls_server_domain, tmp, ARRAYSIZE(tmp));
+            SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_OT_DOMAIN), tmp);
+
+            utf8_to_wchar_string(config->over_tls_path, tmp, ARRAYSIZE(tmp));
+            SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_OT_PATH), tmp);
         }
         return TRUE;
+    }
     case WM_COMMAND:
         switch (wParam)
         {
         case IDOK:
             if (config) {
+                HWND hOtEnable = GetDlgItem(hDlg, IDC_STC_OT_ENABLE);
 
+                config->over_tls_enable = Button_GetCheck(hOtEnable) ? true : false;
             }
             // fall through.
         case IDCANCEL:
@@ -491,8 +565,21 @@ static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wP
     return FALSE;
 }
 
+static void combo_box_set_cur_sel(HWND hCombo, const wchar_t* cur_sel)
+{
+    int index;
+    wchar_t lbstr[MAX_PATH] = { 0 };
+    for (index = 0; index < ComboBox_GetCount(hCombo); ++index) {
+        ComboBox_GetLBText(hCombo, index, lbstr);
+        if (lstrcmpW(lbstr, cur_sel) == 0) {
+            ComboBox_SetCurSel(hCombo, index);
+            break;
+        }
+    }
+}
+
 static void json_config_iter(struct server_config* config, void* p) {
-    struct json_iter_data *iter_data = (struct json_iter_data*)p;
+    struct json_iter_data* iter_data = (struct json_iter_data*)p;
     InsertListViewItem(iter_data->wnd_data->hListView, iter_data->index, config);
     ++iter_data->index;
 }
