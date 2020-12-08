@@ -35,6 +35,9 @@ BOOL InitListViewColumns(HWND hWndListView);
 BOOL InsertListViewItem(HWND hWndListView, int index, struct server_config* config);
 BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, WPARAM wParam, LPARAM lParam);
 static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, LPARAM lParam);
+static void config_dlg_init(HWND hDlg);
+static void load_config_to_dlg(HWND hDlg, const struct server_config* config);
+static void save_dlg_to_config(HWND hDlg, struct server_config* config);
 static void combo_box_set_cur_sel(HWND hCombo, const wchar_t* cur_sel);
 
 static void json_config_iter(struct server_config* config, void* p);
@@ -470,92 +473,19 @@ static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wP
     switch (uMessage)
     {
     case WM_INITDIALOG:
-    {
-        wchar_t tmp[MAX_PATH] = { 0 };
-
-        HWND hMethod = GetDlgItem(hDlg, IDC_CMB_ENCRYPTION);
-        HWND hProtocol = GetDlgItem(hDlg, IDC_CMB_PROTOCOL);
-        HWND hObfs = GetDlgItem(hDlg, IDC_CMB_OBFS);
-        HWND hOtEnable = GetDlgItem(hDlg, IDC_STC_OT_ENABLE);
-
-        enum ss_cipher_type iterMethod = ss_cipher_none;
-        enum ssr_protocol iterProtocol = ssr_protocol_origin;
-        enum ssr_obfs iterObfs = ssr_obfs_plain;
-
-        for (iterMethod = ss_cipher_none; iterMethod < ss_cipher_max; ++iterMethod) {
-            const char* name = ss_cipher_name_of_type(iterMethod);
-            if (name) {
-                utf8_to_wchar_string(name, tmp, ARRAYSIZE(tmp));
-                ComboBox_AddString(hMethod, tmp);
-            }
-        }
-
-        for (iterProtocol = ssr_protocol_origin; iterProtocol < ssr_protocol_max; ++iterProtocol) {
-            const char* name = ssr_protocol_name_of_type(iterProtocol);
-            if (name) {
-                utf8_to_wchar_string(name, tmp, ARRAYSIZE(tmp));
-                ComboBox_AddString(hProtocol, tmp);
-            }
-        }
-
-        for (iterObfs = ssr_obfs_plain; iterObfs < ssr_obfs_max; ++iterObfs) {
-            const char* name = ssr_obfs_name_of_type(iterObfs);
-            if (name) {
-                utf8_to_wchar_string(name, tmp, ARRAYSIZE(tmp));
-                ComboBox_AddString(hObfs, tmp);
-            }
-        }
-
-        CheckableGroupBox_SubclassWindow(hOtEnable);
-
+        config_dlg_init(hDlg);
         RestoreWindowPos(hDlg);
         config = (struct server_config*)lParam;
         if (config) {
-            utf8_to_wchar_string(config->remarks, tmp, ARRAYSIZE(tmp));
-            SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_REMARKS), tmp);
-
-            utf8_to_wchar_string(config->remote_host, tmp, ARRAYSIZE(tmp));
-            SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_SERVER_ADDR), tmp);
-
-            wsprintfW(tmp, L"%d", (int)config->remote_port);
-            SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_SERVER_PORT), tmp);
-
-            utf8_to_wchar_string(config->password, tmp, ARRAYSIZE(tmp));
-            SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_PASSWORD), tmp);
-
-            utf8_to_wchar_string(config->method, tmp, ARRAYSIZE(tmp));
-            combo_box_set_cur_sel(hMethod, tmp);
-
-            utf8_to_wchar_string(config->protocol, tmp, ARRAYSIZE(tmp));
-            combo_box_set_cur_sel(hProtocol, tmp);
-
-            utf8_to_wchar_string(config->protocol_param, tmp, ARRAYSIZE(tmp));
-            SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_PROTOCOL_PARAM), tmp);
-
-            utf8_to_wchar_string(config->obfs, tmp, ARRAYSIZE(tmp));
-            combo_box_set_cur_sel(hObfs, tmp);
-
-            utf8_to_wchar_string(config->obfs_param, tmp, ARRAYSIZE(tmp));
-            SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_OBFS_PARAM), tmp);
-
-            Button_SetCheck(hOtEnable, config->over_tls_enable ? TRUE : FALSE);
-
-            utf8_to_wchar_string(config->over_tls_server_domain, tmp, ARRAYSIZE(tmp));
-            SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_OT_DOMAIN), tmp);
-
-            utf8_to_wchar_string(config->over_tls_path, tmp, ARRAYSIZE(tmp));
-            SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_OT_PATH), tmp);
+            load_config_to_dlg(hDlg, config);
         }
         return TRUE;
-    }
     case WM_COMMAND:
         switch (wParam)
         {
         case IDOK:
             if (config) {
-                HWND hOtEnable = GetDlgItem(hDlg, IDC_STC_OT_ENABLE);
-
-                config->over_tls_enable = Button_GetCheck(hOtEnable) ? true : false;
+                save_dlg_to_config(hDlg, config);
             }
             // fall through.
         case IDCANCEL:
@@ -566,6 +496,147 @@ static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wP
         return TRUE;
     }
     return FALSE;
+}
+
+static void config_dlg_init(HWND hDlg)
+{
+    wchar_t tmp[MAX_PATH] = { 0 };
+
+    HWND hMethod = GetDlgItem(hDlg, IDC_CMB_ENCRYPTION);
+    HWND hProtocol = GetDlgItem(hDlg, IDC_CMB_PROTOCOL);
+    HWND hObfs = GetDlgItem(hDlg, IDC_CMB_OBFS);
+    HWND hOtEnable = GetDlgItem(hDlg, IDC_STC_OT_ENABLE);
+
+    enum ss_cipher_type iterMethod = ss_cipher_none;
+    enum ssr_protocol iterProtocol = ssr_protocol_origin;
+    enum ssr_obfs iterObfs = ssr_obfs_plain;
+
+    for (iterMethod = ss_cipher_none; iterMethod < ss_cipher_max; ++iterMethod) {
+        const char* name = ss_cipher_name_of_type(iterMethod);
+        if (name) {
+            utf8_to_wchar_string(name, tmp, ARRAYSIZE(tmp));
+            ComboBox_AddString(hMethod, tmp);
+        }
+    }
+
+    for (iterProtocol = ssr_protocol_origin; iterProtocol < ssr_protocol_max; ++iterProtocol) {
+        const char* name = ssr_protocol_name_of_type(iterProtocol);
+        if (name) {
+            utf8_to_wchar_string(name, tmp, ARRAYSIZE(tmp));
+            ComboBox_AddString(hProtocol, tmp);
+        }
+    }
+
+    for (iterObfs = ssr_obfs_plain; iterObfs < ssr_obfs_max; ++iterObfs) {
+        const char* name = ssr_obfs_name_of_type(iterObfs);
+        if (name) {
+            utf8_to_wchar_string(name, tmp, ARRAYSIZE(tmp));
+            ComboBox_AddString(hObfs, tmp);
+        }
+    }
+
+    CheckableGroupBox_SubclassWindow(hOtEnable);
+}
+
+static void load_config_to_dlg(HWND hDlg, const struct server_config* config)
+{
+    wchar_t tmp[MAX_PATH] = { 0 };
+
+    utf8_to_wchar_string(config->remarks, tmp, ARRAYSIZE(tmp));
+    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_REMARKS), tmp);
+
+    utf8_to_wchar_string(config->remote_host, tmp, ARRAYSIZE(tmp));
+    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_SERVER_ADDR), tmp);
+
+    wsprintfW(tmp, L"%d", (int)config->remote_port);
+    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_SERVER_PORT), tmp);
+
+    utf8_to_wchar_string(config->password, tmp, ARRAYSIZE(tmp));
+    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_PASSWORD), tmp);
+
+    utf8_to_wchar_string(config->method, tmp, ARRAYSIZE(tmp));
+    combo_box_set_cur_sel(GetDlgItem(hDlg, IDC_CMB_ENCRYPTION), tmp);
+
+    utf8_to_wchar_string(config->protocol, tmp, ARRAYSIZE(tmp));
+    combo_box_set_cur_sel(GetDlgItem(hDlg, IDC_CMB_PROTOCOL), tmp);
+
+    utf8_to_wchar_string(config->protocol_param, tmp, ARRAYSIZE(tmp));
+    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_PROTOCOL_PARAM), tmp);
+
+    utf8_to_wchar_string(config->obfs, tmp, ARRAYSIZE(tmp));
+    combo_box_set_cur_sel(GetDlgItem(hDlg, IDC_CMB_OBFS), tmp);
+
+    utf8_to_wchar_string(config->obfs_param, tmp, ARRAYSIZE(tmp));
+    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_OBFS_PARAM), tmp);
+
+    Button_SetCheck(GetDlgItem(hDlg, IDC_STC_OT_ENABLE), config->over_tls_enable ? TRUE : FALSE);
+
+    utf8_to_wchar_string(config->over_tls_server_domain, tmp, ARRAYSIZE(tmp));
+    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_OT_DOMAIN), tmp);
+
+    utf8_to_wchar_string(config->over_tls_path, tmp, ARRAYSIZE(tmp));
+    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_OT_PATH), tmp);
+}
+
+static void save_dlg_to_config(HWND hDlg, struct server_config* config)
+{
+    wchar_t w_tmp[MAX_PATH] = { 0 };
+    char a_tmp[MAX_PATH] = { 0 };
+
+    HWND hRemarks = GetDlgItem(hDlg, IDC_EDT_REMARKS);
+    HWND hServerAddr = GetDlgItem(hDlg, IDC_EDT_SERVER_ADDR);
+    HWND hServerPort = GetDlgItem(hDlg, IDC_EDT_SERVER_PORT);
+    HWND hPassword = GetDlgItem(hDlg, IDC_EDT_PASSWORD);
+    HWND hMethod = GetDlgItem(hDlg, IDC_CMB_ENCRYPTION);
+    HWND hProtocol = GetDlgItem(hDlg, IDC_CMB_PROTOCOL);
+    HWND hProtocolParam = GetDlgItem(hDlg, IDC_EDT_PROTOCOL_PARAM);
+    HWND hObfs = GetDlgItem(hDlg, IDC_CMB_OBFS);
+    HWND hObfsParam = GetDlgItem(hDlg, IDC_EDT_OBFS_PARAM);
+    HWND hOtEnable = GetDlgItem(hDlg, IDC_STC_OT_ENABLE);
+    HWND hOtDomain = GetDlgItem(hDlg, IDC_EDT_OT_DOMAIN);
+    HWND hOtPath = GetDlgItem(hDlg, IDC_EDT_OT_PATH);
+
+    GetWindowTextW(hRemarks, w_tmp, ARRAYSIZE(w_tmp));
+    wchar_string_to_utf8(w_tmp, a_tmp, ARRAYSIZE(a_tmp));
+    string_safe_assign(&config->remarks, a_tmp);
+
+    GetWindowTextW(hServerAddr, w_tmp, ARRAYSIZE(w_tmp));
+    wchar_string_to_utf8(w_tmp, a_tmp, ARRAYSIZE(a_tmp));
+    string_safe_assign(&config->remote_host, a_tmp);
+
+    GetWindowTextA(hServerPort, a_tmp, ARRAYSIZE(a_tmp));
+    config->remote_port = (unsigned short)strtol(a_tmp, NULL, 10);
+
+    GetWindowTextW(hPassword, w_tmp, ARRAYSIZE(w_tmp));
+    wchar_string_to_utf8(w_tmp, a_tmp, ARRAYSIZE(a_tmp));
+    string_safe_assign(&config->password, a_tmp);
+
+    GetWindowTextA(hMethod, a_tmp, ARRAYSIZE(a_tmp));
+    string_safe_assign(&config->method, a_tmp);
+
+    GetWindowTextA(hProtocol, a_tmp, ARRAYSIZE(a_tmp));
+    string_safe_assign(&config->protocol, a_tmp);
+
+    GetWindowTextW(hProtocolParam, w_tmp, ARRAYSIZE(w_tmp));
+    wchar_string_to_utf8(w_tmp, a_tmp, ARRAYSIZE(a_tmp));
+    string_safe_assign(&config->protocol_param, a_tmp);
+
+    GetWindowTextA(hObfs, a_tmp, ARRAYSIZE(a_tmp));
+    string_safe_assign(&config->obfs, a_tmp);
+
+    GetWindowTextW(hObfsParam, w_tmp, ARRAYSIZE(w_tmp));
+    wchar_string_to_utf8(w_tmp, a_tmp, ARRAYSIZE(a_tmp));
+    string_safe_assign(&config->obfs_param, a_tmp);
+
+    config->over_tls_enable = Button_GetCheck(hOtEnable) ? true : false;
+
+    GetWindowTextW(hOtDomain, w_tmp, ARRAYSIZE(w_tmp));
+    wchar_string_to_utf8(w_tmp, a_tmp, ARRAYSIZE(a_tmp));
+    string_safe_assign(&config->over_tls_server_domain, a_tmp);
+
+    GetWindowTextW(hOtPath, w_tmp, ARRAYSIZE(w_tmp));
+    wchar_string_to_utf8(w_tmp, a_tmp, ARRAYSIZE(a_tmp));
+    string_safe_assign(&config->over_tls_path, a_tmp);
 }
 
 static void combo_box_set_cur_sel(HWND hCombo, const wchar_t* cur_sel)
