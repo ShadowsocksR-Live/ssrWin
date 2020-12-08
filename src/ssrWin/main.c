@@ -32,6 +32,7 @@ static HWND create_list_view(HWND hwndParent, HINSTANCE hinstance);
 BOOL InitListViewColumns(HWND hWndListView);
 BOOL InsertListViewItem(HWND hWndListView, int index, struct server_config* config);
 BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, WPARAM wParam, LPARAM lParam);
+static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, LPARAM lParam);
 
 static void json_config_iter(struct server_config* config, void* p);
 
@@ -282,7 +283,7 @@ static HWND create_list_view(HWND hwndParent, HINSTANCE hinstance)
         hinstance,
         NULL);
 
-    SendMessage(hWndListView, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, LVS_EX_FULLROWSELECT);
+    ListView_SetExtendedListViewStyle(hWndListView, LVS_EX_FULLROWSELECT);
 
     return hWndListView;
 }
@@ -352,13 +353,16 @@ BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, WPARAM wParam, LPARAM lParam)
     NMLVDISPINFOW* plvdi;
     LPNMLISTVIEW pnmlv;
     LPNMHDR lpnmHdr = (LPNMHDR)lParam;
+    HWND hWndList;
     struct server_config* config;
     int cchTextMax;
+    int nIndex;
     LPWSTR pszText;
     wchar_t tmp[MAX_PATH] = { 0 };
     if (lpnmHdr->idFrom != LIST_VIEW_ID) {
         return FALSE;
     }
+    hWndList = lpnmHdr->hwndFrom;
     switch (lpnmHdr->code)
     {
     case LVN_GETDISPINFO:
@@ -427,10 +431,54 @@ BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, WPARAM wParam, LPARAM lParam)
         config_release(config);
         msgHandled = TRUE;
         break;
+    case NM_DBLCLK:
+        msgHandled = TRUE;
+        nIndex = ListView_GetNextItem(hWndList, -1, LVNI_SELECTED);
+        if (nIndex >= 0) {
+            HINSTANCE hInstance;
+            LVITEMW item = { 0 };
+            item.mask = LVIF_PARAM;
+            item.iItem = nIndex;
+            if (ListView_GetItem(hWndList, &item) == FALSE) {
+                break;
+            }
+            config = (struct server_config*) item.lParam;
+            if (config == NULL) {
+                break;
+            }
+            hInstance = (HINSTANCE)GetWindowLongPtrW(hWnd, GWLP_HINSTANCE);
+            DialogBoxParamW(hInstance, MAKEINTRESOURCEW(IDD_CONFIG_DETAILS),
+                hWnd, ConfigDetailsDlgProc, (LPARAM)config);
+        }
+        break;
     default:
         break;
     }
     return msgHandled;
+}
+
+static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, LPARAM lParam)
+{
+    struct server_config* config;
+    switch (uMessage)
+    {
+    case WM_INITDIALOG:
+        RestoreWindowPos(hDlg);
+        config = (struct server_config*)lParam;
+        return TRUE;
+    case WM_COMMAND:
+        switch (wParam)
+        {
+        case IDOK:
+            EndDialog(hDlg, IDOK);
+            break;
+        case IDCANCEL:
+            EndDialog(hDlg, IDCANCEL);
+            break;
+        }
+        return TRUE;
+    }
+    return FALSE;
 }
 
 static void json_config_iter(struct server_config* config, void* p) {
