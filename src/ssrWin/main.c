@@ -511,6 +511,9 @@ static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wP
         RestoreWindowPos(hDlg);
         config = (struct server_config*)lParam;
         if (config) {
+            utf8_to_wchar_string(config->remarks, tmp, ARRAYSIZE(tmp));
+            SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_REMARKS), tmp);
+
             utf8_to_wchar_string(config->remote_host, tmp, ARRAYSIZE(tmp));
             SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_SERVER_ADDR), tmp);
 
