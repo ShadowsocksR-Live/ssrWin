@@ -40,6 +40,7 @@ static void config_dlg_init(HWND hDlg);
 static void load_config_to_dlg(HWND hDlg, const struct server_config* config);
 static void save_dlg_to_config(HWND hDlg, struct server_config* config);
 static void combo_box_set_cur_sel(HWND hCombo, const wchar_t* cur_sel);
+static void save_config_to_file(HWND hListView, const char* settings_file);
 
 static void json_config_iter(struct server_config* config, void* p);
 
@@ -174,6 +175,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         passToNext = FALSE;
         break;
     case WM_DESTROY:
+        save_config_to_file(wnd_data->hListView, wnd_data->settings_file);
         DestroyWindow(wnd_data->hListView);
         TrayDeleteIcon(hTrayWnd, TRAY_ICON_ID);
         PostQuitMessage(0);
@@ -655,6 +657,22 @@ static void combo_box_set_cur_sel(HWND hCombo, const wchar_t* cur_sel)
             break;
         }
     }
+}
+
+static void save_config_to_file(HWND hListView, const char* settings_file) {
+    struct config_json_saver* saver = config_json_saver_create(settings_file);
+    int index;
+    for (index = 0; index < ListView_GetItemCount(hListView); ++index) {
+        struct server_config* config;
+        LVITEMW item = { 0 };
+        item.mask = LVIF_PARAM;
+        item.iItem = index;
+        ListView_GetItem(hListView, &item);
+        config = (struct server_config*)item.lParam;
+        config_json_saver_add_item(saver, config);
+    }
+    config_json_saver_write_file(saver);
+    config_json_saver_release(saver);
 }
 
 static void json_config_iter(struct server_config* config, void* p) {

@@ -12,6 +12,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
+#include <assert.h>
 
 
 bool json_iter_extract_object(const char *key, const struct json_object_iter *iter, const struct json_object **value) {
@@ -258,4 +259,85 @@ struct server_config* parse_config_from_json(const json_object *jso)
         config = NULL;
     }
     return config;
+}
+
+struct json_object* build_json_from_config(struct server_config* config) {
+    struct json_object* jso = json_object_new_object();
+    struct json_object* jso_client;
+    struct json_object* jso_ot;
+
+    json_object_object_add(jso, "remarks", json_object_new_string(config->remarks));
+    json_object_object_add(jso, "password", json_object_new_string(config->password));
+    json_object_object_add(jso, "method", json_object_new_string(config->method));
+    json_object_object_add(jso, "protocol", json_object_new_string(config->protocol));
+    json_object_object_add(jso, "protocol_param", json_object_new_string(config->protocol_param));
+    json_object_object_add(jso, "obfs", json_object_new_string(config->obfs));
+    json_object_object_add(jso, "obfs_param", json_object_new_string(config->obfs_param));
+    json_object_object_add(jso, "udp", json_object_new_boolean(config->udp));
+    json_object_object_add(jso, "idle_timeout", json_object_new_int((int32_t)(config->idle_timeout / MILLISECONDS_PER_SECOND)));
+    json_object_object_add(jso, "connect_timeout", json_object_new_int((int32_t)(config->connect_timeout_ms / MILLISECONDS_PER_SECOND)));
+    json_object_object_add(jso, "udp_timeout", json_object_new_int((int32_t)(config->udp_timeout / MILLISECONDS_PER_SECOND)));
+
+    jso_client = json_object_new_object();
+    json_object_object_add(jso_client, "server", json_object_new_string(config->remote_host));
+    json_object_object_add(jso_client, "server_port", json_object_new_int((int32_t)config->remote_port));
+    json_object_object_add(jso_client, "listen_address", json_object_new_string(config->listen_host));
+    json_object_object_add(jso_client, "listen_port", json_object_new_int((int32_t)config->listen_port));
+    json_object_object_add(jso, "client_settings", jso_client);
+
+    jso_ot = json_object_new_object();
+    json_object_object_add(jso_ot, "enable", json_object_new_boolean(config->over_tls_enable));
+    json_object_object_add(jso_ot, "server_domain", json_object_new_string(config->over_tls_server_domain));
+    json_object_object_add(jso_ot, "path", json_object_new_string(config->over_tls_path));
+    json_object_object_add(jso, "over_tls_settings", jso_ot);
+
+    return jso;
+}
+
+struct config_json_saver {
+    struct json_object* jso_array;
+    char* file_path;
+};
+
+struct config_json_saver* config_json_saver_create(const char* file_path) {
+    struct config_json_saver* saver = (struct config_json_saver*)calloc(1, sizeof(*saver));
+    if (saver == NULL) {
+        return saver;
+    }
+    if (file_path == NULL) {
+        free(saver);
+        return NULL;
+    }
+    saver->jso_array = json_object_new_array();
+    saver->file_path = strdup(file_path);
+
+    return saver;
+}
+
+void config_json_saver_add_item(struct config_json_saver* saver, struct server_config* config) {
+    if (config && saver && saver->jso_array) {
+        struct json_object* jso = build_json_from_config(config);
+        if (jso) {
+            json_object_array_add(saver->jso_array, jso);
+        }
+    }
+}
+
+void config_json_saver_write_file(struct config_json_saver* saver) {
+    if (saver && saver->jso_array) {
+        int flags = JSON_C_TO_STRING_SPACED|JSON_C_TO_STRING_PRETTY;
+        json_object_to_file_ext(saver->file_path, saver->jso_array, flags);
+    }
+}
+
+void config_json_saver_release(struct config_json_saver* saver) {
+    if (saver) {
+        if (saver->jso_array) {
+            json_object_put(saver->jso_array);
+        }
+        if (saver->file_path) {
+            free(saver->file_path);
+        }
+        free(saver);
+    }
 }
