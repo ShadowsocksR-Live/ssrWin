@@ -148,6 +148,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         RestoreWindowPos(hWnd);
         wnd_data->hListView = create_list_view(hWnd, pcs->hInstance);
         InitListViewColumns(wnd_data->hListView);
+        SetFocus(wnd_data->hListView);
         {
             struct json_iter_data iter_data = { wnd_data, 0 };
             char* p, * tmp = exe_file_path(&malloc);
@@ -403,6 +404,7 @@ BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, WPARAM wParam, LPARAM lParam)
         msgHandled = TRUE;
         break;
     case NM_DBLCLK:
+    case NM_RETURN:
         msgHandled = TRUE;
         nIndex = ListView_GetNextItem(hWndList, -1, LVNI_SELECTED);
         if (nIndex >= 0) {
