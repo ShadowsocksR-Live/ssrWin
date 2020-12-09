@@ -33,7 +33,7 @@ static void RestoreWindowPos(HWND hWnd);
 static HWND create_list_view(HWND hwndParent, HINSTANCE hinstance);
 BOOL InitListViewColumns(HWND hWndListView);
 BOOL InsertListViewItem(HWND hWndListView, int index, struct server_config* config);
-BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, WPARAM wParam, LPARAM lParam);
+BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, int ctlID, LPNMHDR pnmHdr);
 static void on_list_view_notification_get_disp_info(NMLVDISPINFOW* plvdi, const struct server_config* config);
 static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, LPARAM lParam);
 static void config_dlg_init(HWND hDlg);
@@ -228,7 +228,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         }
         break;
     case WM_NOTIFY:
-        passToNext = (handle_WM_NOTIFY_from_list_view(hWnd, wParam, lParam) == FALSE);
+        passToNext = (HANDLE_WM_NOTIFY(hWnd, wParam, lParam, handle_WM_NOTIFY_from_list_view) == FALSE);
         break;
     default:
         break;
@@ -376,30 +376,29 @@ BOOL InsertListViewItem(HWND hWndListView, int index, struct server_config* conf
     return TRUE;
 }
 
-BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, WPARAM wParam, LPARAM lParam)
+BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, int ctlID, LPNMHDR pnmHdr)
 {
     BOOL msgHandled = FALSE;
     NMLVDISPINFOW* plvdi;
     LPNMLISTVIEW pnmlv;
-    LPNMHDR lpnmHdr = (LPNMHDR)lParam;
     HWND hWndList;
     struct server_config* config;
     int nIndex;
     wchar_t tmp[MAX_PATH] = { 0 };
-    if (lpnmHdr->idFrom != LIST_VIEW_ID) {
+    if (pnmHdr->idFrom != LIST_VIEW_ID) {
         return FALSE;
     }
-    hWndList = lpnmHdr->hwndFrom;
-    switch (lpnmHdr->code)
+    hWndList = pnmHdr->hwndFrom;
+    switch (pnmHdr->code)
     {
     case LVN_GETDISPINFO:
-        plvdi = (NMLVDISPINFOW*)lParam;
+        plvdi = (NMLVDISPINFOW*)pnmHdr;
         config = (struct server_config*)plvdi->item.lParam;
         on_list_view_notification_get_disp_info(plvdi, config);
         msgHandled = TRUE;
         break;
     case LVN_DELETEITEM:
-        pnmlv = (LPNMLISTVIEW)lParam;
+        pnmlv = (LPNMLISTVIEW)pnmHdr;
         config = (struct server_config*)pnmlv->lParam;
         config_release(config);
         msgHandled = TRUE;
