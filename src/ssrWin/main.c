@@ -200,6 +200,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             } else {
                 config_release(config);
             }
+            SetFocus(wnd_data->hListView);
             break;
         case ID_CMD_EXIT:
             SendMessageW(hWnd, WM_CLOSE, ID_CMD_EXIT, 0);
@@ -426,6 +427,7 @@ BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, WPARAM wParam, LPARAM lParam)
             {
                 ListView_RedrawItems(hWndList, nIndex, nIndex);
             }
+            SetFocus(hWndList);
         }
         break;
     default:
