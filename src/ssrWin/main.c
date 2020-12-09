@@ -107,7 +107,7 @@ ATOM RegisterWndClass(HINSTANCE hInstance, const wchar_t* szWindowClass)
     wcex.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SSRWIN));
     wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
     wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-    wcex.lpszMenuName = MAKEINTRESOURCEW(IDR_TRAYMENU);
+    wcex.lpszMenuName = MAKEINTRESOURCEW(IDR_MENU_MAIN);
     wcex.lpszClassName = szWindowClass;
     wcex.hIconSm = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SSRWIN));
 
@@ -131,6 +131,8 @@ struct json_iter_data {
 };
 
 LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    struct server_config* config;
+    HINSTANCE hInstance;
     struct main_wnd_data* wnd_data = NULL;
     BOOL passToNext = TRUE;
     LPCREATESTRUCTW pcs = NULL;
@@ -185,6 +187,19 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
     case WM_COMMAND:
         switch (LOWORD(wParam))
         {
+        case ID_FILE_NEW_RECORD:
+            config = config_create_ssr_win();
+            hInstance = (HINSTANCE)GetWindowLongPtrW(hWnd, GWLP_HINSTANCE);
+            if (IDOK == DialogBoxParamW(hInstance,
+                MAKEINTRESOURCEW(IDD_CONFIG_DETAILS),
+                hWnd, ConfigDetailsDlgProc, (LPARAM)config))
+            {
+                int nIndex = ListView_GetItemCount(wnd_data->hListView);
+                InsertListViewItem(wnd_data->hListView, nIndex, config);
+            } else {
+                config_release(config);
+            }
+            break;
         case ID_CMD_EXIT:
             SendMessageW(hWnd, WM_CLOSE, ID_CMD_EXIT, 0);
             break;
@@ -193,6 +208,9 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             break;
         case IDCANCEL:
             SendMessageW(hWnd, WM_CLOSE, 0, 0);
+            break;
+        default:
+            assert(0);
             break;
         }
         passToNext = FALSE;

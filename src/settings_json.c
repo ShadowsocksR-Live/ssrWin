@@ -129,6 +129,34 @@ void parse_settings_file(const char* file, json_config_fn fn, void* p)
     }
 }
 
+struct server_config* config_create_ssr_win(void)
+{
+    struct server_config* config = config_create();
+
+    string_safe_assign(&config->remarks, "Default node name");
+    string_safe_assign(&config->password, "password");
+    string_safe_assign(&config->method, "aes-128-ctr");
+    string_safe_assign(&config->protocol, "origin");
+    //string_safe_assign(&config->protocol_param, "");
+    string_safe_assign(&config->obfs, "plain");
+    //string_safe_assign(&config->obfs_param, "");
+    config->udp = true;
+    //config->idle_timeout = DEFAULT_IDLE_TIMEOUT;
+    //config->connect_timeout_ms = DEFAULT_CONNECT_TIMEOUT;
+    //config->udp_timeout = DEFAULT_UDP_TIMEOUT;
+
+    string_safe_assign(&config->remote_host, "");
+    config->remote_port = 443;
+    //string_safe_assign(&config->listen_host, DEFAULT_BIND_HOST);
+    //config->listen_port = DEFAULT_BIND_PORT;
+
+    config->over_tls_enable = false;
+    string_safe_assign(&config->over_tls_server_domain, "");
+    string_safe_assign(&config->over_tls_path, "/abcd1234/");
+
+    return config;
+}
+
 struct server_config* parse_config_from_json(const json_object *jso)
 {
     bool result = false;
@@ -140,7 +168,7 @@ struct server_config* parse_config_from_json(const json_object *jso)
             break;
         }
 
-        config = config_create();
+        config = config_create_ssr_win();
         if (config == NULL) {
             break;
         }
