@@ -389,20 +389,19 @@ BOOL on_context_menu(HWND hWnd, HWND targetWnd, LPARAM lParam)
     HWND  hwndListView = targetWnd;
     HMENU hMenuLoad, hMenu;
     HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtrW(hWnd, GWLP_HINSTANCE);
+    UINT uEnable;
 
     if (hwndListView != GetDlgItem(hWnd, LIST_VIEW_ID)) {
         return FALSE;
     }
 
     nIndex = ListView_GetNextItem(hwndListView, -1, LVNI_SELECTED);
-    if (nIndex < 0) {
-        return FALSE;
-    }
 
     hMenuLoad = LoadMenuW(hInstance, MAKEINTRESOURCEW(IDR_MENU_CONTEXT));
     hMenu = GetSubMenu(hMenuLoad, 0);
 
-    // UpdateMenu(hwndListView, hMenu);
+    uEnable = (MF_BYCOMMAND | ((nIndex >= 0) ? MF_ENABLED : (MF_GRAYED | MF_DISABLED)));
+    EnableMenuItem(hMenu, ID_CMD_DELETE, uEnable);
 
     TrackPopupMenu(hMenu,
         TPM_LEFTALIGN | TPM_RIGHTBUTTON,
