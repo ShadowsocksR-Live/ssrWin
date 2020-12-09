@@ -33,6 +33,8 @@ static void RestoreWindowPos(HWND hWnd);
 static HWND create_list_view(HWND hwndParent, HINSTANCE hinstance);
 BOOL InitListViewColumns(HWND hWndListView);
 BOOL InsertListViewItem(HWND hWndListView, int index, struct server_config* config);
+BOOL on_context_menu(HWND hWnd, HWND targetWnd, LPARAM lParam);
+BOOL on_delete_item(HWND hWnd);
 BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, int ctlID, LPNMHDR pnmHdr);
 static void on_list_view_notification_get_disp_info(NMLVDISPINFOW* plvdi, const struct server_config* config);
 static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, LPARAM lParam);
@@ -132,7 +134,7 @@ struct json_iter_data {
 
 LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
     struct server_config* config;
-    HINSTANCE hInstance;
+    HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtrW(hWnd, GWLP_HINSTANCE);
     struct main_wnd_data* wnd_data = NULL;
     BOOL passToNext = TRUE;
     LPCREATESTRUCTW pcs = NULL;
@@ -190,7 +192,6 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         {
         case ID_FILE_NEW_RECORD:
             config = config_create_ssr_win();
-            hInstance = (HINSTANCE)GetWindowLongPtrW(hWnd, GWLP_HINSTANCE);
             if (IDOK == DialogBoxParamW(hInstance,
                 MAKEINTRESOURCEW(IDD_CONFIG_DETAILS),
                 hWnd, ConfigDetailsDlgProc, (LPARAM)config))
@@ -211,11 +212,17 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         case IDCANCEL:
             SendMessageW(hWnd, WM_CLOSE, 0, 0);
             break;
+        case ID_CMD_DELETE:
+            on_delete_item(hWnd);
+            break;
         default:
             assert(0);
             break;
         }
         passToNext = FALSE;
+        break;
+    case WM_CONTEXTMENU:
+        on_context_menu(hWnd, (HWND)wParam, lParam);
         break;
     case WM_SYSCOMMAND:
         switch (wParam)
@@ -376,11 +383,63 @@ BOOL InsertListViewItem(HWND hWndListView, int index, struct server_config* conf
     return TRUE;
 }
 
+BOOL on_context_menu(HWND hWnd, HWND targetWnd, LPARAM lParam)
+{
+    int nIndex;
+    HWND  hwndListView = targetWnd;
+    HMENU hMenuLoad, hMenu;
+    HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtrW(hWnd, GWLP_HINSTANCE);
+
+    if (hwndListView != GetDlgItem(hWnd, LIST_VIEW_ID)) {
+        return FALSE;
+    }
+
+    nIndex = ListView_GetNextItem(hwndListView, -1, LVNI_SELECTED);
+    if (nIndex < 0) {
+        return FALSE;
+    }
+
+    hMenuLoad = LoadMenuW(hInstance, MAKEINTRESOURCEW(IDR_MENU_CONTEXT));
+    hMenu = GetSubMenu(hMenuLoad, 0);
+
+    // UpdateMenu(hwndListView, hMenu);
+
+    TrackPopupMenu(hMenu,
+        TPM_LEFTALIGN | TPM_RIGHTBUTTON,
+        GET_X_LPARAM(lParam),
+        GET_Y_LPARAM(lParam),
+        0,
+        hWnd,
+        NULL);
+
+    DestroyMenu(hMenuLoad);
+
+    return TRUE;
+}
+
+BOOL on_delete_item(HWND hWnd) {
+    HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtrW(hWnd, GWLP_HINSTANCE);
+    struct main_wnd_data* wnd_data = (struct main_wnd_data*)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
+    wchar_t AppName[MAX_PATH] = { 0 };
+    int nIndex = ListView_GetNextItem(wnd_data->hListView, -1, LVNI_SELECTED);
+    if (nIndex < 0) {
+        MessageBeep(0);
+        return FALSE;
+    }
+    LoadStringW(hInstance, IDS_APP_NAME, AppName, ARRAYSIZE(AppName));
+    if (IDOK == MessageBoxW(hWnd, L"Delete the item", AppName, MB_OKCANCEL)) {
+        ListView_DeleteItem(wnd_data->hListView, nIndex);
+    }
+    SetFocus(wnd_data->hListView);
+    return TRUE;
+}
+
 BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, int ctlID, LPNMHDR pnmHdr)
 {
     BOOL msgHandled = FALSE;
     NMLVDISPINFOW* plvdi;
     LPNMLISTVIEW pnmlv;
+    LPNMLVKEYDOWN pnmlvkd;
     HWND hWndList;
     struct server_config* config;
     int nIndex;
@@ -402,6 +461,12 @@ BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, int ctlID, LPNMHDR pnmHdr)
         config = (struct server_config*)pnmlv->lParam;
         config_release(config);
         msgHandled = TRUE;
+        break;
+    case LVN_KEYDOWN:
+        pnmlvkd = (LPNMLVKEYDOWN)pnmHdr;
+        if (pnmlvkd->wVKey == VK_DELETE) {
+            on_delete_item(hWnd);
+        }
         break;
     case NM_DBLCLK:
     case NM_RETURN:
