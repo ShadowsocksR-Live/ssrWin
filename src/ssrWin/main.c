@@ -194,7 +194,8 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             {
                 int nIndex = ListView_GetItemCount(wnd_data->hListView);
                 InsertListViewItem(wnd_data->hListView, nIndex, config);
-            } else {
+            }
+            else {
                 config_release(config);
             }
             SetFocus(wnd_data->hListView);
@@ -212,7 +213,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             on_delete_item(hWnd);
             break;
         default:
-            if ((MENU_ID_NODE_BEGINNING <= cmd_id) && 
+            if ((MENU_ID_NODE_BEGINNING <= cmd_id) &&
                 (cmd_id < (DWORD)(MENU_ID_NODE_BEGINNING + wnd_data->max_count)))
             {
                 wnd_data->cur_selected = cmd_id - MENU_ID_NODE_BEGINNING;
@@ -279,7 +280,7 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
         HKEY hKey = NULL;
         DWORD dwtype, sizeBuff;
         LSTATUS lRet = RegOpenKeyExW(HKEY_CURRENT_USER, APP_REG_KEY, 0, KEY_READ, &hKey);
-        if(lRet == ERROR_SUCCESS) {
+        if (lRet == ERROR_SUCCESS) {
             dwtype = REG_BINARY;
             sizeBuff = sizeof(wnd_data->cur_selected);
             RegQueryValueExW(hKey, L"cur_selected", 0, &dwtype, (BYTE*)&wnd_data->cur_selected, &sizeBuff);
@@ -299,7 +300,7 @@ static void on_wm_destroy(HWND hWnd) {
     do {
         HKEY hKey = NULL;
         DWORD state = REG_CREATED_NEW_KEY;
-        LSTATUS lRet= RegOpenKeyEx(HKEY_CURRENT_USER, APP_REG_KEY, 0, KEY_WRITE, &hKey);
+        LSTATUS lRet = RegOpenKeyExW(HKEY_CURRENT_USER, APP_REG_KEY, 0, KEY_WRITE, &hKey);
         if (lRet != ERROR_SUCCESS) {
             lRet = RegCreateKeyExW(HKEY_CURRENT_USER, APP_REG_KEY, 0, NULL, 0, 0, NULL, &hKey, &state);
             if (lRet != ERROR_SUCCESS) {
@@ -310,9 +311,9 @@ static void on_wm_destroy(HWND hWnd) {
             RegCloseKey(hKey);
             break;
         }
-        RegSetValueExW(hKey, L"cur_selected", 0, REG_BINARY, (BYTE *)&wnd_data->cur_selected, sizeof(wnd_data->cur_selected));
+        RegSetValueExW(hKey, L"cur_selected", 0, REG_BINARY, (BYTE*)&wnd_data->cur_selected, sizeof(wnd_data->cur_selected));
         RegCloseKey(hKey);
-    } while(0);
+    } while (0);
 
     free(wnd_data);
 }
@@ -356,7 +357,8 @@ static void modify_popup_menu_items(struct main_wnd_data* wnd_data, HMENU hMenu)
             (UINT)(MENU_ID_NODE_BEGINNING + node_count - 1),
             (UINT)(MENU_ID_NODE_BEGINNING + index),
             MF_BYCOMMAND | MF_CHECKED);
-    } else {
+    }
+    else {
         index = -1;
     }
     wnd_data->cur_selected = index;
