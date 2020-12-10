@@ -27,6 +27,7 @@ struct main_wnd_data {
 #define LIST_VIEW_ID 55
 #define MENU_ID_NODE_BEGINNING 60000
 #define MAX_ITEMS_COUNT 10
+#define APP_REG_KEY L"Software\\ssrwin"
 
 ATOM RegisterWndClass(HINSTANCE hInstance, const wchar_t* szWindowClass);
 HWND InitInstance(HINSTANCE hInstance, const wchar_t* wndClass, const wchar_t* title, int nCmdShow);
@@ -273,6 +274,18 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
         }
         parse_settings_file(wnd_data->settings_file, json_config_iter, &iter_data);
     }
+
+    {
+        HKEY hKey = NULL;
+        DWORD dwtype, sizeBuff;
+        LSTATUS lRet = RegOpenKeyExW(HKEY_CURRENT_USER, APP_REG_KEY, 0, KEY_READ, &hKey);
+        if(lRet == ERROR_SUCCESS) {
+            dwtype = REG_BINARY;
+            sizeBuff = sizeof(wnd_data->cur_selected);
+            RegQueryValueExW(hKey, L"cur_selected", 0, &dwtype, (BYTE*)&wnd_data->cur_selected, &sizeBuff);
+            RegCloseKey(hKey);
+        }
+    }
 }
 
 static void on_wm_destroy(HWND hWnd) {
@@ -282,6 +295,25 @@ static void on_wm_destroy(HWND hWnd) {
     DestroyWindow(wnd_data->hListView);
     TrayDeleteIcon(hTrayWnd, TRAY_ICON_ID);
     PostQuitMessage(0);
+
+    do {
+        HKEY hKey = NULL;
+        DWORD state = REG_CREATED_NEW_KEY;
+        LSTATUS lRet= RegOpenKeyEx(HKEY_CURRENT_USER, APP_REG_KEY, 0, KEY_WRITE, &hKey);
+        if (lRet != ERROR_SUCCESS) {
+            lRet = RegCreateKeyExW(HKEY_CURRENT_USER, APP_REG_KEY, 0, NULL, 0, 0, NULL, &hKey, &state);
+            if (lRet != ERROR_SUCCESS) {
+                break;
+            }
+        }
+        if (state != REG_CREATED_NEW_KEY) {
+            RegCloseKey(hKey);
+            break;
+        }
+        RegSetValueExW(hKey, L"cur_selected", 0, REG_BINARY, (BYTE *)&wnd_data->cur_selected, sizeof(wnd_data->cur_selected));
+        RegCloseKey(hKey);
+    } while(0);
+
     free(wnd_data);
 }
 
