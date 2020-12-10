@@ -31,6 +31,8 @@ struct main_wnd_data {
 ATOM RegisterWndClass(HINSTANCE hInstance, const wchar_t* szWindowClass);
 HWND InitInstance(HINSTANCE hInstance, const wchar_t* wndClass, const wchar_t* title, int nCmdShow);
 LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs);
+static void on_wm_destroy(HWND hWnd);
 static void before_tray_menu_popup(HMENU hMenu, void* p);
 static void TrayClickCb(void* p);
 static void ShowWindowSimple(HWND hWnd, BOOL bShow);
@@ -144,33 +146,12 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
     struct main_wnd_data* wnd_data = NULL;
     BOOL passToNext = TRUE;
     DWORD cmd_id;
-    LPCREATESTRUCTW pcs = NULL;
     wnd_data = (struct main_wnd_data*)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
     switch (message)
     {
     case WM_CREATE:
         assert(wnd_data == NULL);
-        wnd_data = (struct main_wnd_data*)calloc(1, sizeof(*wnd_data));
-        SetWindowLongPtrW(hWnd, GWLP_USERDATA, (LONG_PTR)wnd_data);
-        wnd_data->cur_selected = -1;
-        wnd_data->max_count = MAX_ITEMS_COUNT;
-        wnd_data->hMainDlg = hWnd;
-        pcs = (LPCREATESTRUCTW)lParam;
-        RestoreWindowPos(hWnd);
-        wnd_data->hListView = create_list_view(hWnd, pcs->hInstance);
-        InitListViewColumns(wnd_data->hListView);
-        SetFocus(wnd_data->hListView);
-        {
-            struct json_iter_data iter_data = { wnd_data, 0 };
-            char* p, * tmp = exe_file_path(&malloc);
-            if (tmp && (p = strrchr(tmp, '\\'))) {
-                *p = '\0';
-                sprintf(wnd_data->settings_file, "%s/settings.json", tmp);
-                free(tmp);
-            }
-            parse_settings_file(wnd_data->settings_file, json_config_iter, &iter_data);
-        }
-
+        on_wm_create(hWnd, (LPCREATESTRUCTW)lParam);
         break;
     case WM_SIZE:
         if (wnd_data->hListView) {
@@ -189,12 +170,8 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         passToNext = FALSE;
         break;
     case WM_DESTROY:
-        save_config_to_file(wnd_data->hListView, wnd_data->settings_file);
-        DestroyWindow(wnd_data->hListView);
-        TrayDeleteIcon(hTrayWnd, TRAY_ICON_ID);
-        PostQuitMessage(0);
+        on_wm_destroy(hWnd);
         passToNext = FALSE;
-        free(wnd_data);
         break;
     case WM_COMMAND:
         cmd_id = LOWORD(wParam);
@@ -235,7 +212,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             break;
         default:
             if ((MENU_ID_NODE_BEGINNING <= cmd_id) && 
-                (cmd_id < MENU_ID_NODE_BEGINNING + wnd_data->max_count))
+                (cmd_id < (DWORD)(MENU_ID_NODE_BEGINNING + wnd_data->max_count)))
             {
                 wnd_data->cur_selected = cmd_id - MENU_ID_NODE_BEGINNING;
                 break;
@@ -244,6 +221,10 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             break;
         }
         passToNext = FALSE;
+        break;
+    case WM_SETFOCUS:
+        passToNext = FALSE;
+        SetFocus(wnd_data->hListView);
         break;
     case WM_CONTEXTMENU:
         on_context_menu(hWnd, (HWND)wParam, lParam);
@@ -268,6 +249,40 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
+}
+
+static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
+{
+    struct main_wnd_data* wnd_data = NULL;
+    wnd_data = (struct main_wnd_data*)calloc(1, sizeof(*wnd_data));
+    SetWindowLongPtrW(hWnd, GWLP_USERDATA, (LONG_PTR)wnd_data);
+    wnd_data->cur_selected = -1;
+    wnd_data->max_count = MAX_ITEMS_COUNT;
+    wnd_data->hMainDlg = hWnd;
+    RestoreWindowPos(hWnd);
+    wnd_data->hListView = create_list_view(hWnd, pcs->hInstance);
+    InitListViewColumns(wnd_data->hListView);
+    SetFocus(wnd_data->hListView);
+    {
+        struct json_iter_data iter_data = { wnd_data, 0 };
+        char* p, * tmp = exe_file_path(&malloc);
+        if (tmp && (p = strrchr(tmp, '\\'))) {
+            *p = '\0';
+            sprintf(wnd_data->settings_file, "%s/settings.json", tmp);
+            free(tmp);
+        }
+        parse_settings_file(wnd_data->settings_file, json_config_iter, &iter_data);
+    }
+}
+
+static void on_wm_destroy(HWND hWnd) {
+    struct main_wnd_data* wnd_data;
+    wnd_data = (struct main_wnd_data*)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
+    save_config_to_file(wnd_data->hListView, wnd_data->settings_file);
+    DestroyWindow(wnd_data->hListView);
+    TrayDeleteIcon(hTrayWnd, TRAY_ICON_ID);
+    PostQuitMessage(0);
+    free(wnd_data);
 }
 
 static void modify_popup_menu_items(struct main_wnd_data* wnd_data, HMENU hMenu) {
