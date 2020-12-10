@@ -16,6 +16,7 @@ extern "C" {
 #endif
 
 extern HWND CreateTrayWindow(HINSTANCE hInstance, HMENU hMenuTray, HWND hwndReciever);
+extern void TraySetBeforePopupMenuCallback(HWND hwnd, void(*cb)(HMENU hMenu, void*p), void*p);
 extern void TraySetDblClkCallback(HWND hwnd, void(*cb)(void*p), void*p);
 extern void TraySetClickCallback(HWND hwnd, void(*cb)(void*p), void*p);
 extern BOOL TrayAddIcon(HWND hwnd, UINT uID, HICON hicon, const wchar_t* pszToolTip);

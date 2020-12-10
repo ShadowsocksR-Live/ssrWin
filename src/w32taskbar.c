@@ -24,6 +24,8 @@ static UINT g_traycreatedmsg = 0;
 static HWND g_hwndReciever = NULL;
 static HICON g_hiconApp = NULL;
 static wchar_t g_szToolTip[MAX_PATH] = { 0 };
+static void(*g_before_popup_menu_cb)(HMENU hMenu, void*p) = NULL;
+static void* g_before_popup_menu_cb_p = NULL;
 static void(*g_dbclk_cb)(void*p) = NULL;
 static void* g_dbclk_cb_p = NULL;
 static void(*g_clk_cb)(void*p) = NULL;
@@ -69,6 +71,11 @@ HWND CreateTrayWindow(HINSTANCE hInstance, HMENU hMenuTray, HWND hwndReciever)
     g_hwndReciever = hwndReciever;
 
     return g_hwndTrayX;
+}
+
+void TraySetBeforePopupMenuCallback(HWND hwnd, void(*cb)(HMENU hMenu, void*p), void*p) {
+    g_before_popup_menu_cb = cb;
+    g_before_popup_menu_cb_p = p;
 }
 
 void TraySetDblClkCallback(HWND hwnd, void(*cb)(void*p), void*p) {
@@ -199,12 +206,15 @@ LRESULT CALLBACK TrayProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             POINT pt = { 0 };
             GetCursorPos(&pt);
             SetForegroundWindow(g_hwndReciever);
+            if (g_before_popup_menu_cb) {
+                g_before_popup_menu_cb(g_hmenuTray, g_before_popup_menu_cb_p);
+            }
             TrackPopupMenu(g_hmenuTray, TPM_LEFTALIGN | TPM_TOPALIGN, pt.x, pt.y, 0, g_hwndReciever, NULL);
             PostMessage(g_hwndReciever, WM_NULL, 0, 0);
         }
         else if (uMouseMsg == WM_LBUTTONDBLCLK) {
             if (g_dbclk_cb) {
-                g_dbclk_cb(g_dbclk_cb_p); // ShowLogWindow(TRUE);
+                g_dbclk_cb(g_dbclk_cb_p);
             }
         }
         else if (uMouseMsg == WM_LBUTTONDOWN) {
