@@ -19,14 +19,19 @@ struct main_wnd_data {
     HWND hMainDlg;
     HWND hListView;
     char settings_file[MAX_PATH];
+    int cur_selected;
+    int max_count;
 };
 
 #define TRAY_ICON_ID 1
 #define LIST_VIEW_ID 55
+#define MENU_ID_NODE_BEGINNING 60000
+#define MAX_ITEMS_COUNT 10
 
 ATOM RegisterWndClass(HINSTANCE hInstance, const wchar_t* szWindowClass);
 HWND InitInstance(HINSTANCE hInstance, const wchar_t* wndClass, const wchar_t* title, int nCmdShow);
 LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+static void before_tray_menu_popup(HMENU hMenu, void* p);
 static void TrayClickCb(void* p);
 static void ShowWindowSimple(HWND hWnd, BOOL bShow);
 static void RestoreWindowPos(HWND hWnd);
@@ -73,6 +78,7 @@ int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmd
         hIconApp = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SSRWIN));
         TrayAddIcon(hTrayWnd, TRAY_ICON_ID, hIconApp, AppName);
 
+        TraySetBeforePopupMenuCallback(hTrayWnd, before_tray_menu_popup, hMainDlg);
         TraySetClickCallback(hTrayWnd, TrayClickCb, hMainDlg);
     }
 
@@ -137,6 +143,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
     HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtrW(hWnd, GWLP_HINSTANCE);
     struct main_wnd_data* wnd_data = NULL;
     BOOL passToNext = TRUE;
+    DWORD cmd_id;
     LPCREATESTRUCTW pcs = NULL;
     wnd_data = (struct main_wnd_data*)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
     switch (message)
@@ -145,6 +152,8 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         assert(wnd_data == NULL);
         wnd_data = (struct main_wnd_data*)calloc(1, sizeof(*wnd_data));
         SetWindowLongPtrW(hWnd, GWLP_USERDATA, (LONG_PTR)wnd_data);
+        wnd_data->cur_selected = -1;
+        wnd_data->max_count = MAX_ITEMS_COUNT;
         wnd_data->hMainDlg = hWnd;
         pcs = (LPCREATESTRUCTW)lParam;
         RestoreWindowPos(hWnd);
@@ -188,9 +197,18 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         free(wnd_data);
         break;
     case WM_COMMAND:
-        switch (LOWORD(wParam))
+        cmd_id = LOWORD(wParam);
+        switch (cmd_id)
         {
         case ID_FILE_NEW_RECORD:
+            if (wnd_data->max_count < ListView_GetItemCount(wnd_data->hListView)) {
+                wchar_t Info[MAX_PATH] = { 0 };
+                wchar_t AppName[MAX_PATH] = { 0 };
+                LoadStringW(hInstance, IDS_APP_NAME, AppName, ARRAYSIZE(AppName));
+                wsprintfW(Info, L"You can only add %d records maximum.", wnd_data->max_count);
+                MessageBoxW(hWnd, Info, AppName, MB_OK);
+                break;
+            }
             config = config_create_ssr_win();
             if (IDOK == DialogBoxParamW(hInstance,
                 MAKEINTRESOURCEW(IDD_CONFIG_DETAILS),
@@ -216,6 +234,12 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             on_delete_item(hWnd);
             break;
         default:
+            if ((MENU_ID_NODE_BEGINNING <= cmd_id) && 
+                (cmd_id < MENU_ID_NODE_BEGINNING + wnd_data->max_count))
+            {
+                wnd_data->cur_selected = cmd_id - MENU_ID_NODE_BEGINNING;
+                break;
+            }
             assert(0);
             break;
         }
@@ -244,6 +268,62 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
+}
+
+static void modify_popup_menu_items(struct main_wnd_data* wnd_data, HMENU hMenu) {
+    int node_count = ListView_GetItemCount(wnd_data->hListView);
+    int menu_count = GetMenuItemCount(hMenu);
+    int index;
+    for (index = menu_count - 1; index >= 0; --index) {
+        int item_id = GetMenuItemID(hMenu, index);
+        if (item_id == 0) {
+            break;
+        }
+        DeleteMenu(hMenu, item_id, MF_BYCOMMAND);
+    }
+    for (index = 0; index < node_count; ++index) {
+        wchar_t tmp[MAX_PATH] = { 0 };
+        struct server_config* config;
+        char* name;
+        LVITEMW item = { 0 };
+        item.mask = LVIF_PARAM;
+        item.iItem = index;
+        if (ListView_GetItem(wnd_data->hListView, &item) == FALSE) {
+            assert(0);
+            break;
+        }
+        if ((config = (struct server_config*)item.lParam) == NULL) {
+            assert(0);
+            break;
+        }
+        name = lstrlenA(config->remarks) ? config->remarks : config->remote_host;
+        utf8_to_wchar_string(name, tmp, ARRAYSIZE(tmp));
+        AppendMenuW(hMenu, MF_STRING, (UINT)(MENU_ID_NODE_BEGINNING + index), tmp);
+    }
+
+    index = wnd_data->cur_selected;
+    if (node_count > 0) {
+        index = ((0 <= index) && (index < node_count)) ? index : 0;
+        CheckMenuRadioItem(hMenu,
+            MENU_ID_NODE_BEGINNING,
+            (UINT)(MENU_ID_NODE_BEGINNING + node_count - 1),
+            (UINT)(MENU_ID_NODE_BEGINNING + index),
+            MF_BYCOMMAND | MF_CHECKED);
+    } else {
+        index = -1;
+    }
+    wnd_data->cur_selected = index;
+}
+
+static void before_tray_menu_popup(HMENU hMenu, void* p) {
+    HWND hWnd = (HWND)p;
+    struct main_wnd_data* wnd_data = NULL;
+    if (!IsWindow(hWnd)) {
+        assert(0);
+        return;
+    }
+    wnd_data = (struct main_wnd_data*)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
+    modify_popup_menu_items(wnd_data, hMenu);
 }
 
 static void TrayClickCb(void* p) {
@@ -562,6 +642,8 @@ static void on_list_view_notification_get_disp_info(NMLVDISPINFOW* plvdi, const 
 static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, LPARAM lParam)
 {
     static struct server_config* config;
+    HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtrW(hDlg, GWLP_HINSTANCE);
+    HICON hIconApp;
     switch (uMessage)
     {
     case WM_INITDIALOG:
@@ -571,6 +653,8 @@ static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wP
         if (config) {
             load_config_to_dlg(hDlg, config);
         }
+        hIconApp = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SSRWIN));
+        SendMessage(hDlg, WM_SETICON, ICON_BIG, (LPARAM)hIconApp);
         return TRUE;
     case WM_COMMAND:
         switch (wParam)
