@@ -16,8 +16,6 @@ struct server_config;
 typedef void(*json_config_fn)(struct server_config* config, void* p);
 void parse_settings_file(const char* file, json_config_fn fn, void* p);
 
-struct server_config* config_create_ssr_win(void);
-
 struct config_json_saver;
 struct config_json_saver* config_json_saver_create(const char* file_path);
 void config_json_saver_add_item(struct config_json_saver* saver, struct server_config* config);

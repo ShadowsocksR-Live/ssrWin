@@ -190,7 +190,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
                 MessageBoxW(hWnd, Info, AppName, MB_OK);
                 break;
             }
-            config = config_create_ssr_win();
+            config = config_create();
             if (IDOK == DialogBoxParamW(hInstance,
                 MAKEINTRESOURCEW(IDD_CONFIG_DETAILS),
                 hWnd, ConfigDetailsDlgProc, (LPARAM)config))
