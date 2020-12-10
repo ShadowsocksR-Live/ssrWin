@@ -5,7 +5,6 @@
 #include <assert.h>
 #include "resource.h"
 #include "w32taskbar.h"
-#include <privoxyexports.h>
 #include <exe_file_path.h>
 #include <ssr_executive.h>
 #include <ssr_cipher_names.h>
@@ -22,6 +21,7 @@ struct main_wnd_data {
     char settings_file[MAX_PATH];
     int cur_selected;
     int max_count;
+    struct ssr_client_ctx* client_ctx;
 };
 
 #define TRAY_ICON_ID 1
@@ -224,12 +224,19 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
                 LoadStringW(hInstance, IDS_NO_CONFIG, Info, ARRAYSIZE(Info));
                 MessageBoxW(hWnd, Info, AppName, MB_OK);
             } else {
+                if (wnd_data->client_ctx) {
+                    ssr_client_terminate(wnd_data->client_ctx);
+                    wnd_data->client_ctx = NULL;
+                }
                 config = retrieve_config_from_list_view(wnd_data->hListView, wnd_data->cur_selected);
-                run_ssr_client(config);
+                wnd_data->client_ctx = ssr_client_begin_run(config);
             }
             break;
         case ID_CMD_STOP:
-            MessageBeep(0);
+            if (wnd_data->client_ctx) {
+                ssr_client_terminate(wnd_data->client_ctx);
+                wnd_data->client_ctx = NULL;
+            }
             break;
         default:
             if ((MENU_ID_NODE_BEGINNING <= cmd_id) &&

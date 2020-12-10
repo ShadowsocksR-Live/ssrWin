@@ -7,9 +7,11 @@
 extern "C" {
 #endif
 
+struct ssr_client_ctx;
 struct server_config;
 
-void run_ssr_client(struct server_config* config);
+struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config);
+void ssr_client_terminate(struct ssr_client_ctx* ctx);
 
 #ifdef __cplusplus
 } /* extern "C" */
