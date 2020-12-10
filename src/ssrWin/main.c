@@ -12,6 +12,7 @@
 #include "settings_json.h"
 #include "utf8_to_wchar.h"
 #include "checkablegroupbox.h"
+#include "run_ssr_client.h"
 
 HWND hTrayWnd = NULL;
 
@@ -34,6 +35,7 @@ HWND InitInstance(HINSTANCE hInstance, const wchar_t* wndClass, const wchar_t* t
 LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs);
 static void on_wm_destroy(HWND hWnd);
+static int adjust_current_selected_item(int cur_sel, int total_count);
 static void before_tray_menu_popup(HMENU hMenu, void* p);
 static void TrayClickCb(void* p);
 static void ShowWindowSimple(HWND hWnd, BOOL bShow);
@@ -51,6 +53,7 @@ static void load_config_to_dlg(HWND hDlg, const struct server_config* config);
 static void save_dlg_to_config(HWND hDlg, struct server_config* config);
 static void combo_box_set_cur_sel(HWND hCombo, const wchar_t* cur_sel);
 static void save_config_to_file(HWND hListView, const char* settings_file);
+static struct server_config* retrieve_config_from_list_view(HWND hListView, int index);
 
 static void json_config_iter(struct server_config* config, void* p);
 
@@ -212,6 +215,22 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         case ID_CMD_DELETE:
             on_delete_item(hWnd);
             break;
+        case ID_CMD_RUN:
+            wnd_data->cur_selected = adjust_current_selected_item(wnd_data->cur_selected, ListView_GetItemCount(wnd_data->hListView));
+            if (wnd_data->cur_selected < 0) {
+                wchar_t Info[MAX_PATH] = { 0 };
+                wchar_t AppName[MAX_PATH] = { 0 };
+                LoadStringW(hInstance, IDS_APP_NAME, AppName, ARRAYSIZE(AppName));
+                LoadStringW(hInstance, IDS_NO_CONFIG, Info, ARRAYSIZE(Info));
+                MessageBoxW(hWnd, Info, AppName, MB_OK);
+            } else {
+                config = retrieve_config_from_list_view(wnd_data->hListView, wnd_data->cur_selected);
+                run_ssr_client(config);
+            }
+            break;
+        case ID_CMD_STOP:
+            MessageBeep(0);
+            break;
         default:
             if ((MENU_ID_NODE_BEGINNING <= cmd_id) &&
                 (cmd_id < (DWORD)(MENU_ID_NODE_BEGINNING + wnd_data->max_count)))
@@ -333,14 +352,8 @@ static void modify_popup_menu_items(struct main_wnd_data* wnd_data, HMENU hMenu)
         wchar_t tmp[MAX_PATH] = { 0 };
         struct server_config* config;
         char* name;
-        LVITEMW item = { 0 };
-        item.mask = LVIF_PARAM;
-        item.iItem = index;
-        if (ListView_GetItem(wnd_data->hListView, &item) == FALSE) {
-            assert(0);
-            break;
-        }
-        if ((config = (struct server_config*)item.lParam) == NULL) {
+        config = retrieve_config_from_list_view(wnd_data->hListView, index);
+        if (config == NULL) {
             assert(0);
             break;
         }
@@ -349,19 +362,25 @@ static void modify_popup_menu_items(struct main_wnd_data* wnd_data, HMENU hMenu)
         AppendMenuW(hMenu, MF_STRING, (UINT)(MENU_ID_NODE_BEGINNING + index), tmp);
     }
 
-    index = wnd_data->cur_selected;
-    if (node_count > 0) {
-        index = ((0 <= index) && (index < node_count)) ? index : 0;
+    wnd_data->cur_selected = adjust_current_selected_item(wnd_data->cur_selected, node_count);
+
+    if (wnd_data->cur_selected >= 0) {
         CheckMenuRadioItem(hMenu,
             MENU_ID_NODE_BEGINNING,
             (UINT)(MENU_ID_NODE_BEGINNING + node_count - 1),
-            (UINT)(MENU_ID_NODE_BEGINNING + index),
+            (UINT)(MENU_ID_NODE_BEGINNING + wnd_data->cur_selected),
             MF_BYCOMMAND | MF_CHECKED);
     }
-    else {
-        index = -1;
+}
+
+static int adjust_current_selected_item(int cur_sel, int total_count) {
+    if (total_count > 0) {
+        cur_sel = ((0 <= cur_sel) && (cur_sel < total_count)) ? cur_sel : 0;
     }
-    wnd_data->cur_selected = index;
+    else {
+        cur_sel = -1;
+    }
+    return cur_sel;
 }
 
 static void before_tray_menu_popup(HMENU hMenu, void* p) {
@@ -602,13 +621,7 @@ BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, int ctlID, LPNMHDR pnmHdr)
         nIndex = ListView_GetNextItem(hWndList, -1, LVNI_SELECTED);
         if (nIndex >= 0) {
             HINSTANCE hInstance;
-            LVITEMW item = { 0 };
-            item.mask = LVIF_PARAM;
-            item.iItem = nIndex;
-            if (ListView_GetItem(hWndList, &item) == FALSE) {
-                break;
-            }
-            config = (struct server_config*)item.lParam;
+            config = retrieve_config_from_list_view(hWndList, nIndex);
             if (config == NULL) {
                 break;
             }
@@ -880,17 +893,24 @@ static void combo_box_set_cur_sel(HWND hCombo, const wchar_t* cur_sel)
 static void save_config_to_file(HWND hListView, const char* settings_file) {
     struct config_json_saver* saver = config_json_saver_create(settings_file);
     int index;
+    struct server_config* config;
     for (index = 0; index < ListView_GetItemCount(hListView); ++index) {
-        struct server_config* config;
-        LVITEMW item = { 0 };
-        item.mask = LVIF_PARAM;
-        item.iItem = index;
-        ListView_GetItem(hListView, &item);
-        config = (struct server_config*)item.lParam;
+        config = retrieve_config_from_list_view(hListView, index);
         config_json_saver_add_item(saver, config);
     }
     config_json_saver_write_file(saver);
     config_json_saver_release(saver);
+}
+
+static struct server_config* retrieve_config_from_list_view(HWND hListView, int index) {
+    struct server_config* config = NULL;
+    LVITEMW item = { 0 };
+    item.mask = LVIF_PARAM;
+    item.iItem = index;
+    if (ListView_GetItem(hListView, &item)) {
+        config = (struct server_config*)item.lParam;
+    }
+    return config;
 }
 
 static void json_config_iter(struct server_config* config, void* p) {

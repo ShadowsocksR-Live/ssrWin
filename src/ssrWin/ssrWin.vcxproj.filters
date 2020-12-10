@@ -45,6 +45,9 @@
     <ClInclude Include="..\utf8_to_wchar.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\run_ssr_client.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="process_manager.c">
@@ -75,6 +78,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\utf8_to_wchar.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\run_ssr_client.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

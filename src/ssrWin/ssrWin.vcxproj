@@ -143,6 +143,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\comm_with_named_pipe.h" />
+    <ClInclude Include="..\run_ssr_client.h" />
     <ClInclude Include="..\settings_json.h" />
     <ClInclude Include="..\last_error_to_string.h" />
     <ClInclude Include="..\net_adapter_enum.h" />
@@ -155,6 +156,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\comm_with_named_pipe.c" />
+    <ClCompile Include="..\run_ssr_client.c" />
     <ClCompile Include="..\settings_json.c" />
     <ClCompile Include="..\last_error_to_string.c" />
     <ClCompile Include="..\net_adapter_enum.c" />
