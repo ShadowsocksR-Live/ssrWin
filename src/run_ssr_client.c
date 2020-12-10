@@ -20,7 +20,7 @@ struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config) {
     struct ssr_client_ctx* ctx = (struct ssr_client_ctx*)calloc(1, sizeof(*ctx));
     DWORD threadId = 0;
 
-    ctx->config = config;
+    ctx->config = config_clone(config);
 
     // change listen_port to 0, thus we will get a dynamic listen port.
     ctx->config->listen_port = 0;
@@ -38,6 +38,7 @@ void ssr_client_terminate(struct ssr_client_ctx* ctx) {
         ssr_run_loop_shutdown(ctx->state);
         WaitForSingleObject(ctx->hSsrClient, INFINITE);
         CloseHandle(ctx->hSsrClient);
+        config_release(ctx->config);
         free(ctx);
     }
 }
