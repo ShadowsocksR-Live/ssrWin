@@ -46,7 +46,7 @@ void ssr_client_terminate(struct ssr_client_ctx* ctx) {
 static void ssr_feedback_state(struct ssr_client_state *state, void *p) {
     struct ssr_client_ctx* ctx = (struct ssr_client_ctx*)p;
     SOCKET socket;
-    state_set_force_quit(state, true);
+    state_set_force_quit(state, true); // force_quit flag
     socket = (SOCKET)ssr_get_listen_socket_fd(state);
     ctx->real_listen_port = retrieve_socket_port(socket);
     ctx->state = state;
