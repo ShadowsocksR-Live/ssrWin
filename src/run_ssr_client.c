@@ -7,7 +7,9 @@
 #include <privoxyexports.h>
 #include <ssr_client_api.h>
 #include "run_ssr_client.h"
+#include "proxy_settings.h"
 
+#define PRIVOXY_LISTEN_ADDR L"127.0.0.1"
 #define PRIVOXY_LISTEN_PORT 8118
 
 #define PRIVOXY_CONFIG_CONTENT_FMT \
@@ -43,6 +45,8 @@ struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config) {
 
     ctx->hPrivoxySvr = CreateThread(NULL, 0, PrivoxyThread, ctx, 0, &threadId);
 
+    enable_system_proxy(PRIVOXY_LISTEN_ADDR, PRIVOXY_LISTEN_PORT);
+
     return ctx;
 }
 
@@ -54,12 +58,12 @@ void ssr_client_terminate(struct ssr_client_ctx* ctx) {
         config_release(ctx->config);
 
         privoxy_shutdown();
-        if (WAIT_OBJECT_0 != WaitForSingleObject(ctx->hPrivoxySvr, 1000)) {
-            TerminateThread(ctx->hPrivoxySvr, -1);
-        }
+        WaitForSingleObject(ctx->hPrivoxySvr, INFINITE);
         CloseHandle(ctx->hPrivoxySvr);
 
         free(ctx);
+
+        disable_system_proxy();
     }
 }
 

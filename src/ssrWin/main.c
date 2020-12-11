@@ -12,6 +12,7 @@
 #include "utf8_to_wchar.h"
 #include "checkablegroupbox.h"
 #include "run_ssr_client.h"
+#include <dump_info.h>
 
 HWND hTrayWnd = NULL;
 
@@ -279,6 +280,9 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
     return 0;
 }
 
+static void dump_info_callback(const char *info, void *p) {
+}
+
 static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
 {
     struct main_wnd_data* wnd_data = NULL;
@@ -313,6 +317,7 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
             RegCloseKey(hKey);
         }
     }
+    set_dump_info_callback(dump_info_callback, wnd_data);
 }
 
 static void on_wm_destroy(HWND hWnd) {
