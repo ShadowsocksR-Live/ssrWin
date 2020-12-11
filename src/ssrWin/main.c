@@ -225,19 +225,15 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
                 LoadStringW(hInstance, IDS_NO_CONFIG, Info, ARRAYSIZE(Info));
                 MessageBoxW(hWnd, Info, AppName, MB_OK);
             } else {
-                if (wnd_data->client_ctx) {
-                    ssr_client_terminate(wnd_data->client_ctx);
-                    wnd_data->client_ctx = NULL;
-                }
+                assert(wnd_data->client_ctx == NULL);
                 config = retrieve_config_from_list_view(wnd_data->hListView, wnd_data->cur_selected);
                 wnd_data->client_ctx = ssr_client_begin_run(config);
             }
             break;
         case ID_CMD_STOP:
-            if (wnd_data->client_ctx) {
-                ssr_client_terminate(wnd_data->client_ctx);
-                wnd_data->client_ctx = NULL;
-            }
+            assert(wnd_data->client_ctx != NULL);
+            ssr_client_terminate(wnd_data->client_ctx);
+            wnd_data->client_ctx = NULL;
             break;
         default:
             if ((MENU_ID_NODE_BEGINNING <= cmd_id) &&
@@ -323,6 +319,7 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
 static void on_wm_destroy(HWND hWnd) {
     struct main_wnd_data* wnd_data;
     wnd_data = (struct main_wnd_data*)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
+    ssr_client_terminate(wnd_data->client_ctx);
     save_config_to_file(wnd_data->hListView, wnd_data->settings_file);
     DestroyWindow(wnd_data->hListView);
     TrayDeleteIcon(hTrayWnd, TRAY_ICON_ID);
@@ -383,6 +380,9 @@ static void modify_popup_menu_items(struct main_wnd_data* wnd_data, HMENU hMenu)
             (UINT)(MENU_ID_NODE_BEGINNING + wnd_data->cur_selected),
             MF_BYCOMMAND | MF_CHECKED);
     }
+
+    EnableMenuItem(hMenu, ID_CMD_RUN, MF_BYCOMMAND | ((wnd_data->client_ctx == NULL) && (wnd_data->cur_selected >= 0) ? MF_ENABLED : MF_GRAYED));
+    EnableMenuItem(hMenu, ID_CMD_STOP, MF_BYCOMMAND | (wnd_data->client_ctx != NULL ? MF_ENABLED : MF_GRAYED));
 }
 
 static int adjust_current_selected_item(int cur_sel, int total_count) {
