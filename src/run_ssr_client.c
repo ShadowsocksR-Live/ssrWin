@@ -67,7 +67,7 @@ void ssr_client_terminate(struct ssr_client_ctx* ctx) {
     }
 }
 
-static void ssr_feedback_state(struct ssr_client_state *state, void *p) {
+static void ssr_feedback_state(struct ssr_client_state* state, void* p) {
     struct ssr_client_ctx* ctx = (struct ssr_client_ctx*)p;
     SOCKET socket;
     state_set_force_quit(state, true); // force_quit flag
@@ -88,8 +88,9 @@ static uint16_t retrieve_socket_port(SOCKET socket) {
     int len = sizeof(tmp);
     if (getsockname(socket, (struct sockaddr*)tmp, &len) != 0) {
         return 0;
-    } else {
-        return ntohs( ((struct sockaddr_in*)tmp)->sin_port);
+    }
+    else {
+        return ntohs(((struct sockaddr_in*)tmp)->sin_port);
     }
 }
 
@@ -104,7 +105,8 @@ static DWORD WINAPI PrivoxyThread(LPVOID lpParam) {
         *p = '\0';
         sprintf(privoxy_config_file, "%s/privoxy_config.txt", tmp);
         free(tmp);
-    } else {
+    }
+    else {
         assert(0);
     }
 

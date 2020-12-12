@@ -3,9 +3,9 @@
 #include "ssr_executive.h"
 
 #ifdef _MSC_VER
-   #ifndef _CRT_SECURE_NO_WARNINGS
-      #define _CRT_SECURE_NO_WARNINGS
-   #endif
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+#endif
 #endif
 
 #include <stdio.h>
@@ -15,10 +15,10 @@
 #include <assert.h>
 
 
-bool json_iter_extract_object(const char *key, const struct json_object_iter *iter, const struct json_object **value) {
+bool json_iter_extract_object(const char* key, const struct json_object_iter* iter, const struct json_object** value) {
     bool result = false;
     do {
-        struct json_object *val;
+        struct json_object* val;
         if (key == NULL || iter == NULL || value == NULL) {
             break;
         }
@@ -36,10 +36,10 @@ bool json_iter_extract_object(const char *key, const struct json_object_iter *it
     return result;
 }
 
-bool json_iter_extract_string(const char *key, const struct json_object_iter *iter, const char **value) {
+bool json_iter_extract_string(const char* key, const struct json_object_iter* iter, const char** value) {
     bool result = false;
     do {
-        struct json_object *val;
+        struct json_object* val;
         if (key == NULL || iter == NULL || value == NULL) {
             break;
         }
@@ -57,10 +57,10 @@ bool json_iter_extract_string(const char *key, const struct json_object_iter *it
     return result;
 }
 
-bool json_iter_extract_int(const char *key, const struct json_object_iter *iter, int *value) {
+bool json_iter_extract_int(const char* key, const struct json_object_iter* iter, int* value) {
     bool result = false;
     do {
-        struct json_object *val;
+        struct json_object* val;
 
         if (key == NULL || iter == NULL || value == NULL) {
             break;
@@ -79,10 +79,10 @@ bool json_iter_extract_int(const char *key, const struct json_object_iter *iter,
     return result;
 }
 
-bool json_iter_extract_bool(const char *key, const struct json_object_iter *iter, bool *value) {
+bool json_iter_extract_bool(const char* key, const struct json_object_iter* iter, bool* value) {
     bool result = false;
     do {
-        struct json_object *val;
+        struct json_object* val;
         if (key == NULL || iter == NULL || value == NULL) {
             break;
         }
@@ -100,11 +100,11 @@ bool json_iter_extract_bool(const char *key, const struct json_object_iter *iter
     return result;
 }
 
-struct server_config* parse_config_from_json(const json_object *jso);
+struct server_config* parse_config_from_json(const json_object* jso);
 
 void parse_settings_file(const char* file, json_config_fn fn, void* p)
 {
-    json_object *jso = NULL;
+    json_object* jso = NULL;
     do {
         size_t ii, c;
 
@@ -115,11 +115,12 @@ void parse_settings_file(const char* file, json_config_fn fn, void* p)
 
         c = json_object_array_length(jso);
         for (ii = 0; ii < c; ii++) {
-            json_object *obj = json_object_array_get_idx(jso, ii);
+            json_object* obj = json_object_array_get_idx(jso, ii);
             struct server_config* config = parse_config_from_json(obj);
             if (fn) {
                 fn(config, p);
-            } else {
+            }
+            else {
                 config_release(config);
             }
         }
@@ -129,7 +130,7 @@ void parse_settings_file(const char* file, json_config_fn fn, void* p)
     }
 }
 
-struct server_config* parse_config_from_json(const json_object *jso)
+struct server_config* parse_config_from_json(const json_object* jso)
 {
     bool result = false;
     struct server_config* config = NULL;
@@ -148,8 +149,8 @@ struct server_config* parse_config_from_json(const json_object *jso)
         json_object_object_foreachC(jso, iter) {
             int obj_int = 0;
             bool obj_bool = false;
-            const char *obj_str = NULL;
-            const struct json_object *obj_obj = NULL;
+            const char* obj_str = NULL;
+            const struct json_object* obj_obj = NULL;
 
             if (json_iter_extract_string("remarks", &iter, &obj_str)) {
                 string_safe_assign(&config->remarks, obj_str);
@@ -202,9 +203,9 @@ struct server_config* parse_config_from_json(const json_object *jso)
             }
 
             if (json_iter_extract_object("client_settings", &iter, &obj_obj)) {
-                struct json_object_iter iter2 = {NULL};
+                struct json_object_iter iter2 = { NULL };
                 json_object_object_foreachC(obj_obj, iter2) {
-                    const char *obj_str2 = NULL;
+                    const char* obj_str2 = NULL;
 
                     if (json_iter_extract_string("server", &iter2, &obj_str2)) {
                         string_safe_assign(&config->remote_host, obj_str2);
@@ -229,7 +230,7 @@ struct server_config* parse_config_from_json(const json_object *jso)
             if (json_iter_extract_object("over_tls_settings", &iter, &obj_obj)) {
                 struct json_object_iter iter2 = { NULL };
                 json_object_object_foreachC(obj_obj, iter2) {
-                    const char *obj_str2 = NULL;
+                    const char* obj_str2 = NULL;
                     obj_bool = false;
 
                     if (json_iter_extract_bool("enable", &iter2, &obj_bool)) {
@@ -325,7 +326,7 @@ void config_json_saver_add_item(struct config_json_saver* saver, struct server_c
 
 void config_json_saver_write_file(struct config_json_saver* saver) {
     if (saver && saver->jso_array) {
-        int flags = JSON_C_TO_STRING_SPACED|JSON_C_TO_STRING_PRETTY;
+        int flags = JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY;
         json_object_to_file_ext(saver->file_path, saver->jso_array, flags);
     }
 }

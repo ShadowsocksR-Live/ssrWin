@@ -224,7 +224,8 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
                 LoadStringW(hInstance, IDS_APP_NAME, AppName, ARRAYSIZE(AppName));
                 LoadStringW(hInstance, IDS_NO_CONFIG, Info, ARRAYSIZE(Info));
                 MessageBoxW(hWnd, Info, AppName, MB_OK);
-            } else {
+            }
+            else {
                 assert(wnd_data->client_ctx == NULL);
                 config = retrieve_config_from_list_view(wnd_data->hListView, wnd_data->cur_selected);
                 wnd_data->client_ctx = ssr_client_begin_run(config);
@@ -276,7 +277,9 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
     return 0;
 }
 
-static void dump_info_callback(const char *info, void *p) {
+static void dump_info_callback(int dump_level, const char* info, void* p) {
+    struct main_wnd_data* wnd_data = (struct main_wnd_data*)p;
+    // TODO: output the client info.
 }
 
 static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)

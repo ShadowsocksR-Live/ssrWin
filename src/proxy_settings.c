@@ -38,7 +38,7 @@ BOOL enable_system_proxy(const wchar_t* proxy_addr, int port)
     bReturn = InternetSetOptionW(NULL, INTERNET_OPTION_PER_CONNECTION_OPTION, &list, dwBufSize);
 
     InternetSetOptionW(NULL, INTERNET_OPTION_SETTINGS_CHANGED, NULL, 0);
-    InternetSetOptionW(NULL, INTERNET_OPTION_REFRESH , NULL, 0);
+    InternetSetOptionW(NULL, INTERNET_OPTION_REFRESH, NULL, 0);
     return bReturn;
 }
 
@@ -71,6 +71,6 @@ BOOL disable_system_proxy(const wchar_t* conn_name)
     // Set the options on the connection.
     bReturn = InternetSetOptionW(NULL, INTERNET_OPTION_PER_CONNECTION_OPTION, &list, dwBufSize);
     InternetSetOptionW(NULL, INTERNET_OPTION_SETTINGS_CHANGED, NULL, 0);
-    InternetSetOptionW(NULL, INTERNET_OPTION_REFRESH , NULL, 0);
+    InternetSetOptionW(NULL, INTERNET_OPTION_REFRESH, NULL, 0);
     return bReturn;
 }
