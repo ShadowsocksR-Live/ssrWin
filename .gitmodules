@@ -6,3 +6,7 @@
 	path = depends/ssr-native
 	url = https://github.com/ShadowsocksR-Live/shadowsocksr-native.git
 	branch = master
+[submodule "depends/libqrencode"]
+	path = depends/libqrencode
+	url = https://github.com/ShadowsocksR-Live/libqrencode.git
+	branch = master
