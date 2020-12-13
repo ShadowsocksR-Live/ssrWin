@@ -11,7 +11,7 @@
 #include "qrcode_gen.h"
 
 #define BI_RGB          0L
-#define SCALE_RATE      8
+#define IMG_MAX_WIDTH   400
 
 BOOL generate_qr_code_image_file(const char* szSourceSring, const char* szFilePath)
 {
@@ -27,16 +27,25 @@ BOOL generate_qr_code_image_file(const char* szSourceSring, const char* szFilePa
     }
 
     // Compute QRCode
-    if (pQRC = QRcode_encodeString(szSourceSring, 0, QR_ECLEVEL_H, QR_MODE_8, 1)) {
+    if ((pQRC = QRcode_encodeString(szSourceSring, 0, QR_ECLEVEL_H, QR_MODE_8, 1)) == NULL) {
+        assert(!"QRcode_encodeString failed\n");
+        return FALSE;
+    }
+
+    {
         BITMAPFILEHEADER kFileHeader = { 0 };
         BITMAPINFOHEADER kInfoHeader = { 0 };
+        int scale_rate = IMG_MAX_WIDTH / pQRC->width;
+        if (scale_rate < 1) {
+            scale_rate = 1;
+        }
 
         unWidth = pQRC->width;
-        unWidthAdjusted = unWidth * SCALE_RATE * 3;
+        unWidthAdjusted = unWidth * scale_rate * 3;
         if (unWidthAdjusted % sizeof(UINT32)) {
             unWidthAdjusted = (unWidthAdjusted / sizeof(UINT32) + 1) * sizeof(UINT32);
         }
-        unDataBytes = unWidthAdjusted * unWidth * SCALE_RATE;
+        unDataBytes = unWidthAdjusted * unWidth * scale_rate;
         // Allocate pixels buffer
         if (!(pRGBData = (unsigned char*)malloc(unDataBytes))) {
             assert(!"Out of memory");
@@ -58,8 +67,8 @@ BOOL generate_qr_code_image_file(const char* szSourceSring, const char* szFilePa
         kFileHeader.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
 
         kInfoHeader.biSize = sizeof(BITMAPINFOHEADER);
-        kInfoHeader.biWidth = unWidth * SCALE_RATE;
-        kInfoHeader.biHeight = ((int)unWidth * SCALE_RATE);
+        kInfoHeader.biWidth = unWidth * scale_rate;
+        kInfoHeader.biHeight = ((int)unWidth * scale_rate);
         kInfoHeader.biCompression = BI_RGB;
         kInfoHeader.biPlanes = 1;
         kInfoHeader.biBitCount = 24;
@@ -67,18 +76,18 @@ BOOL generate_qr_code_image_file(const char* szSourceSring, const char* szFilePa
         // Convert QrCode bits to bmp pixels
         pSourceData = pQRC->data;
         for (y = 0; y < unWidth; y++) {
-            pDestData = pRGBData + unWidthAdjusted * y * SCALE_RATE;
+            pDestData = pRGBData + unWidthAdjusted * y * scale_rate;
             for (x = 0; x < unWidth; x++) {
                 if (*pSourceData & 0x01) {
-                    for (l = 0; l < SCALE_RATE; l++) {
-                        for (n = 0; n < SCALE_RATE; n++) {
+                    for (l = 0; l < (unsigned int)scale_rate; l++) {
+                        for (n = 0; n < (unsigned int)scale_rate; n++) {
                             *(pDestData + 0 + n * 3 + unWidthAdjusted * l) = 0;
                             *(pDestData + 1 + n * 3 + unWidthAdjusted * l) = 0;
                             *(pDestData + 2 + n * 3 + unWidthAdjusted * l) = 0;
                         }
                     }
                 }
-                pDestData += 3 * SCALE_RATE;
+                pDestData += 3 * scale_rate;
                 pSourceData++;
             }
         }
@@ -98,10 +107,6 @@ BOOL generate_qr_code_image_file(const char* szSourceSring, const char* szFilePa
         free(pRGBData);
         QRcode_free(pQRC);
     }
-    else {
-        assert(!"QRcode_encodeString failed\n");
-        return FALSE;
-    }
     return TRUE;
 }
 
@@ -113,10 +118,20 @@ HBITMAP generate_qr_code_image(const char* szSourceSring)
     QRcode* pQRC;
 
     // Compute QRCode
-    if (pQRC = QRcode_encodeString(szSourceSring, 0, QR_ECLEVEL_H, QR_MODE_8, 1)) {
+    if ((pQRC = QRcode_encodeString(szSourceSring, 0, QR_ECLEVEL_H, QR_MODE_8, 1)) == NULL) {
+        assert(!"QRcode_encodeString failed\n");
+        return NULL;
+    }
+
+    {
+        int scale_rate = IMG_MAX_WIDTH / pQRC->width;
+        if (scale_rate < 1) {
+            scale_rate = 1;
+        }
+
         unWidth = pQRC->width;
-        unWidthAdjusted = unWidth * SCALE_RATE * sizeof(UINT32);
-        unDataBytes = unWidthAdjusted * unWidth * SCALE_RATE;
+        unWidthAdjusted = unWidth * scale_rate * sizeof(UINT32);
+        unDataBytes = unWidthAdjusted * unWidth * scale_rate;
         // Allocate pixels buffer
         if (!(pRGBData = (unsigned char*)malloc(unDataBytes))) {
             assert(!"Out of memory");
@@ -126,30 +141,26 @@ HBITMAP generate_qr_code_image(const char* szSourceSring)
         // Preset to white
         memset(pRGBData, 0xff, unDataBytes);
         pSourceData = pQRC->data;
-        unWidthAdjusted = unWidth * SCALE_RATE * sizeof(UINT32);
+        unWidthAdjusted = unWidth * scale_rate * sizeof(UINT32);
         for (y = 0; y < unWidth; y++) {
-            pDestData = pRGBData + unWidthAdjusted * y * SCALE_RATE;
+            pDestData = pRGBData + unWidthAdjusted * y * scale_rate;
             for (x = 0; x < unWidth; x++) {
                 if (*pSourceData & 0x01) {
-                    for (l = 0; l < SCALE_RATE; l++) {
-                        for (n = 0; n < SCALE_RATE; n++) {
+                    for (l = 0; l < (unsigned int)scale_rate; l++) {
+                        for (n = 0; n < (unsigned int)scale_rate; n++) {
                             *((UINT32*)(pDestData + 0 + n * sizeof(UINT32) + unWidthAdjusted * l)) = 0;
                         }
                     }
                 }
-                pDestData += sizeof(UINT32) * SCALE_RATE;
+                pDestData += sizeof(UINT32) * scale_rate;
                 pSourceData++;
             }
         }
 
-        hBmp = CreateBitmap(pQRC->width * SCALE_RATE, pQRC->width * SCALE_RATE, 1, 32, pRGBData);
+        hBmp = CreateBitmap(pQRC->width * scale_rate, pQRC->width * scale_rate, 1, 32, pRGBData);
 
         free(pRGBData);
         QRcode_free(pQRC);
-    }
-    else {
-        assert(!"QRcode_encodeString failed\n");
-        return NULL;
     }
     return hBmp;
 }
