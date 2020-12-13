@@ -187,6 +187,12 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         cmd_id = LOWORD(wParam);
         switch (cmd_id)
         {
+        case ID_CMD_IMPORT_URL:
+            MessageBeep(0);
+            break;
+        case ID_CMD_SCAN_QRCODE:
+            MessageBeep(0);
+            break;
         case ID_FILE_NEW_RECORD:
             if (wnd_data->max_count < ListView_GetItemCount(wnd_data->hListView)) {
                 wchar_t Info[MAX_PATH] = { 0 };
