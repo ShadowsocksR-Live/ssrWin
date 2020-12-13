@@ -2,8 +2,6 @@
 #include <Windows.h>
 #include <assert.h>
 #include <stdio.h>
-#include <exe_file_path.h>
-#include <ssr_executive.h>
 #include <privoxyexports.h>
 #include <ssr_client_api.h>
 #include "run_ssr_client.h"

@@ -34,6 +34,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ssr-client-lib", "..\depend
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "routeService", "routeService\routeService.vcxproj", "{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "qrencode", "..\depends\libqrencode\win32\qrencode.vcxproj", "{F0291457-FA64-3B06-B6D2-3878C7D18EA0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -114,6 +116,14 @@ Global
 		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Release|Win32.Build.0 = Release|Win32
 		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Release|x64.ActiveCfg = Release|x64
 		{CBC28B3B-897E-4DD4-8531-AD5DAD64AD88}.Release|x64.Build.0 = Release|x64
+		{F0291457-FA64-3B06-B6D2-3878C7D18EA0}.Debug|Win32.ActiveCfg = Debug|Win32
+		{F0291457-FA64-3B06-B6D2-3878C7D18EA0}.Debug|Win32.Build.0 = Debug|Win32
+		{F0291457-FA64-3B06-B6D2-3878C7D18EA0}.Debug|x64.ActiveCfg = Debug|x64
+		{F0291457-FA64-3B06-B6D2-3878C7D18EA0}.Debug|x64.Build.0 = Debug|x64
+		{F0291457-FA64-3B06-B6D2-3878C7D18EA0}.Release|Win32.ActiveCfg = Release|Win32
+		{F0291457-FA64-3B06-B6D2-3878C7D18EA0}.Release|Win32.Build.0 = Release|Win32
+		{F0291457-FA64-3B06-B6D2-3878C7D18EA0}.Release|x64.ActiveCfg = Release|x64
+		{F0291457-FA64-3B06-B6D2-3878C7D18EA0}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -51,6 +51,12 @@
     <ClInclude Include="..\proxy_settings.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\qrcode_gen.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\save_bitmap.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="process_manager.c">
@@ -87,6 +93,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\proxy_settings.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\qrcode_gen.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\save_bitmap.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -3,16 +3,15 @@
 #include <tchar.h>
 #include <CommCtrl.h>
 #include <assert.h>
+#include <ssr_client_api.h>
 #include "resource.h"
 #include "w32taskbar.h"
-#include <exe_file_path.h>
-#include <ssr_executive.h>
-#include <ssr_cipher_names.h>
 #include "settings_json.h"
 #include "utf8_to_wchar.h"
 #include "checkablegroupbox.h"
 #include "run_ssr_client.h"
-#include <dump_info.h>
+#include "qrcode_gen.h"
+#include "save_bitmap.h"
 
 HWND hTrayWnd = NULL;
 
@@ -46,6 +45,7 @@ BOOL InitListViewColumns(HWND hWndListView);
 BOOL InsertListViewItem(HWND hWndListView, int index, struct server_config* config);
 BOOL on_context_menu(HWND hWnd, HWND targetWnd, LPARAM lParam);
 BOOL on_delete_item(HWND hWnd);
+BOOL on_cmd_qr_code(HWND hWnd);
 BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, int ctlID, LPNMHDR pnmHdr);
 static void on_list_view_notification_get_disp_info(NMLVDISPINFOW* plvdi, const struct server_config* config);
 static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, LPARAM lParam);
@@ -69,7 +69,10 @@ int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmd
     HICON hIconApp;
     wchar_t WndClass[MAX_PATH] = { 0 };
     wchar_t AppName[MAX_PATH] = { 0 };
+    HBITMAP bmp;
     UNREFERENCED_PARAMETER(lpszCmdLine);
+
+    CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
 
     LoadStringW(hInstance, IDS_MAIN_WND_CLASS, WndClass, ARRAYSIZE(WndClass));
     RegisterWndClass(hInstance, WndClass);
@@ -106,6 +109,8 @@ int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmd
             DispatchMessage(&msg);
         }
     }
+
+    CoUninitialize();
 
     return (int)msg.wParam;
 }
@@ -212,6 +217,9 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             break;
         case IDCANCEL:
             SendMessageW(hWnd, WM_CLOSE, 0, 0);
+            break;
+        case ID_CMD_QR_CODE:
+            on_cmd_qr_code(hWnd);
             break;
         case ID_CMD_DELETE:
             on_delete_item(hWnd);
@@ -564,6 +572,7 @@ BOOL on_context_menu(HWND hWnd, HWND targetWnd, LPARAM lParam)
     hMenu = GetSubMenu(hMenuLoad, 0);
 
     uEnable = (MF_BYCOMMAND | ((nIndex >= 0) ? MF_ENABLED : (MF_GRAYED | MF_DISABLED)));
+    EnableMenuItem(hMenu, ID_CMD_QR_CODE, uEnable);
     EnableMenuItem(hMenu, ID_CMD_DELETE, uEnable);
 
     TrackPopupMenu(hMenu,
@@ -576,6 +585,121 @@ BOOL on_context_menu(HWND hWnd, HWND targetWnd, LPARAM lParam)
 
     DestroyMenu(hMenuLoad);
 
+    return TRUE;
+}
+
+static INT_PTR CALLBACK QrCodeDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, LPARAM lParam)
+{
+    static struct server_config* config;
+    HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtrW(hDlg, GWLP_HINSTANCE);
+    HICON hIconApp;
+    static char *qrcode_str;
+    static HBITMAP hBmp = NULL;
+    HDC dc, mdc;
+    RECT rc;
+    HMENU hMenuLoad, hMenu;
+    HGLOBAL hglbCopy;
+    LPSTR lptstrCopy;
+    HBITMAP hBmpCopy;
+    OPENFILENAMEW saveFileDialog = { 0 };
+    wchar_t szSaveFileName[MAX_PATH] = { 0 };
+
+    switch (uMessage)
+    {
+    case WM_INITDIALOG:
+        RestoreWindowPos(hDlg);
+        config = (struct server_config*)lParam;
+        hIconApp = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SSRWIN));
+        SendMessage(hDlg, WM_SETICON, ICON_BIG, (LPARAM)hIconApp);
+        qrcode_str = ssr_qr_code_encode(config, &malloc);
+        hBmp = generate_qr_code_image(qrcode_str);
+        return TRUE;
+    case WM_CONTEXTMENU:
+        hMenuLoad = LoadMenuW(hInstance, MAKEINTRESOURCEW(IDR_MENU_QRCODE));
+        hMenu = GetSubMenu(hMenuLoad, 0);
+        TrackPopupMenu(hMenu,
+            TPM_LEFTALIGN | TPM_RIGHTBUTTON,
+            GET_X_LPARAM(lParam),
+            GET_Y_LPARAM(lParam),
+            0,
+            hDlg,
+            NULL);
+        DestroyMenu(hMenuLoad);
+        break;
+    case WM_DESTROY:
+        DeleteObject(hBmp);
+        free(qrcode_str);
+        break;
+    case WM_PAINT:
+        GetClientRect(hDlg, &rc);
+        dc = GetDC(hDlg), mdc = CreateCompatibleDC(dc);
+        SelectObject(mdc, hBmp);
+        BitBlt(dc, 10, 10, rc.right-rc.left, rc.bottom-rc.top, mdc, 0, 0, SRCCOPY);
+        ReleaseDC(hDlg, dc);
+        DeleteDC(mdc);
+        break;
+    case WM_COMMAND:
+        switch (wParam)
+        {
+        case ID_CMD_COPY_TEXT:
+            OpenClipboard(hDlg);
+            EmptyClipboard();
+            hglbCopy = GlobalAlloc(GMEM_MOVEABLE, (lstrlenA(qrcode_str) + 1) * sizeof(char));
+            if (hglbCopy == NULL) {
+                CloseClipboard();
+                return FALSE;
+            }
+            lptstrCopy = (char*) GlobalLock(hglbCopy);
+            lstrcpyA(lptstrCopy, qrcode_str);
+            GlobalUnlock(hglbCopy); 
+            SetClipboardData(CF_TEXT, hglbCopy); 
+            CloseClipboard();
+            break;
+        case ID_CMD_COPY_IMAGE:
+            hBmpCopy= (HBITMAP) CopyImage(hBmp, IMAGE_BITMAP, 0, 0, LR_DEFAULTSIZE);
+            OpenClipboard(hDlg);
+            EmptyClipboard();
+            SetClipboardData(CF_BITMAP, hBmpCopy);
+            CloseClipboard();
+            break;
+        case ID_CMD_SAVE_IMAGE_FILE:
+            //Save Dialog
+            saveFileDialog.lStructSize= sizeof(saveFileDialog);
+            saveFileDialog.hwndOwner = hDlg;
+            saveFileDialog.lpstrFilter = L"Bitmap Files (*.bmp)\0*bmp\0All Files (*.*)\0*.*\0\0";
+            saveFileDialog.lpstrFile = szSaveFileName;
+            saveFileDialog.nMaxFile = ARRAYSIZE(szSaveFileName);
+            saveFileDialog.Flags = OFN_EXPLORER | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY |OFN_OVERWRITEPROMPT;
+            saveFileDialog.lpstrDefExt = L"bmp";
+            if(GetSaveFileNameW(&saveFileDialog)){
+                save_bitmap_to_file(hBmp, szSaveFileName);
+            }
+            break;
+        case IDOK:
+        case IDCANCEL:
+            config = NULL;
+            EndDialog(hDlg, wParam);
+            break;
+        }
+        return TRUE;
+    }
+    return FALSE;
+}
+
+BOOL on_cmd_qr_code(HWND hWnd) {
+    struct main_wnd_data* wnd_data = (struct main_wnd_data*)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
+    HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtrW(hWnd, GWLP_HINSTANCE);
+    int nIndex = ListView_GetNextItem(wnd_data->hListView, -1, LVNI_SELECTED);
+    struct server_config* config;
+    if (nIndex < 0) {
+        return FALSE;
+    }
+    config = retrieve_config_from_list_view(wnd_data->hListView, nIndex);
+    if (config == NULL) {
+        return FALSE;
+    }
+    DialogBoxParamW(hInstance, MAKEINTRESOURCEW(IDD_QR_CODE), hWnd, QrCodeDlgProc, (LPARAM)config);
+    SetFocus(wnd_data->hListView);
     return TRUE;
 }
 
