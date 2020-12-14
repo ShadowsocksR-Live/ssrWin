@@ -21,14 +21,12 @@ struct main_wnd_data {
     HWND hListView;
     char settings_file[MAX_PATH];
     int cur_selected;
-    int max_count;
     struct ssr_client_ctx* client_ctx;
 };
 
 #define TRAY_ICON_ID 1
 #define LIST_VIEW_ID 55
 #define MENU_ID_NODE_BEGINNING 60000
-#define MAX_ITEMS_COUNT 10
 #define APP_REG_KEY L"Software\\ssrwin"
 
 ATOM RegisterWndClass(HINSTANCE hInstance, const wchar_t* szWindowClass);
@@ -153,6 +151,7 @@ struct json_iter_data {
 };
 
 LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    int count;
     struct server_config* config;
     HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtrW(hWnd, GWLP_HINSTANCE);
     struct main_wnd_data* wnd_data = NULL;
@@ -196,14 +195,6 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             MessageBeep(0);
             break;
         case ID_FILE_NEW_RECORD:
-            if (wnd_data->max_count < ListView_GetItemCount(wnd_data->hListView)) {
-                wchar_t Info[MAX_PATH] = { 0 };
-                wchar_t AppName[MAX_PATH] = { 0 };
-                LoadStringW(hInstance, IDS_APP_NAME, AppName, ARRAYSIZE(AppName));
-                wsprintfW(Info, L"You can only add %d records maximum.", wnd_data->max_count);
-                MessageBoxW(hWnd, Info, AppName, MB_OK);
-                break;
-            }
             config = config_create();
             if (IDOK == DialogBoxParamW(hInstance,
                 MAKEINTRESOURCEW(IDD_CONFIG_DETAILS),
@@ -253,8 +244,9 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             wnd_data->client_ctx = NULL;
             break;
         default:
+            count = ListView_GetItemCount(wnd_data->hListView);
             if ((MENU_ID_NODE_BEGINNING <= cmd_id) &&
-                (cmd_id < (DWORD)(MENU_ID_NODE_BEGINNING + wnd_data->max_count)))
+                (cmd_id < (DWORD)(MENU_ID_NODE_BEGINNING + count)))
             {
                 wnd_data->cur_selected = cmd_id - MENU_ID_NODE_BEGINNING;
                 break;
@@ -304,7 +296,6 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
     wnd_data = (struct main_wnd_data*)calloc(1, sizeof(*wnd_data));
     SetWindowLongPtrW(hWnd, GWLP_USERDATA, (LONG_PTR)wnd_data);
     wnd_data->cur_selected = -1;
-    wnd_data->max_count = MAX_ITEMS_COUNT;
     wnd_data->hMainDlg = hWnd;
     RestoreWindowPos(hWnd);
     wnd_data->hListView = create_list_view(hWnd, pcs->hInstance);
