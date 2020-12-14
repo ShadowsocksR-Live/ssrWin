@@ -12,6 +12,7 @@
 #include "run_ssr_client.h"
 #include "qrcode_gen.h"
 #include "save_bitmap.h"
+#include "capture_screen.h"
 
 HWND hTrayWnd = NULL;
 
@@ -35,6 +36,7 @@ HWND InitInstance(HINSTANCE hInstance, const wchar_t* wndClass, const wchar_t* t
 LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs);
 static void on_wm_destroy(HWND hWnd);
+static void on_cmd_import_url(HWND hWnd);
 static int adjust_current_selected_item(int cur_sel, int total_count);
 static void before_tray_menu_popup(HMENU hMenu, void* p);
 static void TrayClickCb(void* p);
@@ -57,6 +59,7 @@ static void save_config_to_file(HWND hListView, const char* settings_file);
 static struct server_config* retrieve_config_from_list_view(HWND hListView, int index);
 
 static void json_config_iter(struct server_config* config, void* p);
+static char* retrieve_string_from_clipboard(HWND hWnd, void* (*allocator)(size_t));
 
 int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmdLine, int nCmdShow)
 {
@@ -69,7 +72,6 @@ int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmd
     HICON hIconApp;
     wchar_t WndClass[MAX_PATH] = { 0 };
     wchar_t AppName[MAX_PATH] = { 0 };
-    HBITMAP bmp;
     UNREFERENCED_PARAMETER(lpszCmdLine);
 
     CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
@@ -188,7 +190,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         switch (cmd_id)
         {
         case ID_CMD_IMPORT_URL:
-            MessageBeep(0);
+            on_cmd_import_url(hWnd);
             break;
         case ID_CMD_SCAN_QRCODE:
             MessageBeep(0);
@@ -361,6 +363,32 @@ static void on_wm_destroy(HWND hWnd) {
     } while (0);
 
     free(wnd_data);
+}
+
+static void on_cmd_import_url(HWND hWnd) {
+    wchar_t AppName[MAX_PATH] = { 0 };
+    wchar_t InfoFmt[MAX_PATH] = { 0 };
+    wchar_t Info[MAX_PATH] = { 0 };
+    BOOL succ = FALSE;
+    UINT uType;
+    struct main_wnd_data* wnd_data = (struct main_wnd_data*)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
+    HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtrW(hWnd, GWLP_HINSTANCE);
+    char* ssr_url = retrieve_string_from_clipboard(hWnd, &malloc);
+    if (ssr_url) {
+        struct server_config* config = ssr_qr_code_decode(ssr_url);
+        if (config) {
+            int count = ListView_GetItemCount(wnd_data->hListView);
+            InsertListViewItem(wnd_data->hListView, count, config);
+            succ = TRUE;
+        }
+        free(ssr_url);
+    }
+
+    LoadStringW(hInstance, IDS_APP_NAME, AppName, ARRAYSIZE(AppName));
+    LoadStringW(hInstance, IDS_IMPORT_URL, InfoFmt, ARRAYSIZE(InfoFmt));
+    wsprintfW(Info, InfoFmt, succ ? L"successfully" : L"failed");
+    uType = (succ ? MB_ICONINFORMATION : MB_ICONWARNING) | MB_OK;
+    MessageBoxW(hWnd, Info, AppName, uType);
 }
 
 static void modify_popup_menu_items(struct main_wnd_data* wnd_data, HMENU hMenu) {
@@ -599,7 +627,7 @@ static INT_PTR CALLBACK QrCodeDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, L
     static struct server_config* config;
     HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtrW(hDlg, GWLP_HINSTANCE);
     HICON hIconApp;
-    static char *qrcode_str;
+    static char* qrcode_str;
     static HBITMAP hBmp = NULL;
     HDC dc, mdc;
     RECT rc;
@@ -640,7 +668,7 @@ static INT_PTR CALLBACK QrCodeDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, L
         GetClientRect(hDlg, &rc);
         dc = GetDC(hDlg), mdc = CreateCompatibleDC(dc);
         SelectObject(mdc, hBmp);
-        BitBlt(dc, 10, 10, rc.right-rc.left, rc.bottom-rc.top, mdc, 0, 0, SRCCOPY);
+        BitBlt(dc, 10, 10, rc.right - rc.left, rc.bottom - rc.top, mdc, 0, 0, SRCCOPY);
         ReleaseDC(hDlg, dc);
         DeleteDC(mdc);
         break;
@@ -655,14 +683,14 @@ static INT_PTR CALLBACK QrCodeDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, L
                 CloseClipboard();
                 return FALSE;
             }
-            lptstrCopy = (char*) GlobalLock(hglbCopy);
+            lptstrCopy = (char*)GlobalLock(hglbCopy);
             lstrcpyA(lptstrCopy, qrcode_str);
-            GlobalUnlock(hglbCopy); 
-            SetClipboardData(CF_TEXT, hglbCopy); 
+            GlobalUnlock(hglbCopy);
+            SetClipboardData(CF_TEXT, hglbCopy);
             CloseClipboard();
             break;
         case ID_CMD_COPY_IMAGE:
-            hBmpCopy= (HBITMAP) CopyImage(hBmp, IMAGE_BITMAP, 0, 0, LR_DEFAULTSIZE);
+            hBmpCopy = (HBITMAP)CopyImage(hBmp, IMAGE_BITMAP, 0, 0, LR_DEFAULTSIZE);
             OpenClipboard(hDlg);
             EmptyClipboard();
             SetClipboardData(CF_BITMAP, hBmpCopy);
@@ -670,14 +698,14 @@ static INT_PTR CALLBACK QrCodeDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, L
             break;
         case ID_CMD_SAVE_IMAGE_FILE:
             //Save Dialog
-            saveFileDialog.lStructSize= sizeof(saveFileDialog);
+            saveFileDialog.lStructSize = sizeof(saveFileDialog);
             saveFileDialog.hwndOwner = hDlg;
             saveFileDialog.lpstrFilter = L"Bitmap Files (*.bmp)\0*bmp\0All Files (*.*)\0*.*\0\0";
             saveFileDialog.lpstrFile = szSaveFileName;
             saveFileDialog.nMaxFile = ARRAYSIZE(szSaveFileName);
-            saveFileDialog.Flags = OFN_EXPLORER | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY |OFN_OVERWRITEPROMPT;
+            saveFileDialog.Flags = OFN_EXPLORER | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT;
             saveFileDialog.lpstrDefExt = L"bmp";
-            if(GetSaveFileNameW(&saveFileDialog)){
+            if (GetSaveFileNameW(&saveFileDialog)) {
                 save_bitmap_to_file(hBmp, szSaveFileName);
             }
             break;
@@ -1062,4 +1090,51 @@ static void json_config_iter(struct server_config* config, void* p) {
     struct json_iter_data* iter_data = (struct json_iter_data*)p;
     InsertListViewItem(iter_data->wnd_data->hListView, iter_data->index, config);
     ++iter_data->index;
+}
+
+static char* retrieve_string_from_clipboard(HWND hWnd, void* (*allocator)(size_t)) {
+    char* result = NULL;
+    UINT format = 0;
+    if (allocator == NULL) {
+        return NULL;
+    }
+    if (!OpenClipboard(hWnd)) {
+        return NULL;
+    }
+    if (IsClipboardFormatAvailable(CF_TEXT)) {
+        format = CF_TEXT;
+    }
+    else if (IsClipboardFormatAvailable(CF_UNICODETEXT)) {
+        format = CF_UNICODETEXT;
+    }
+    if (format != 0) {
+        HGLOBAL hglb = GetClipboardData(format);
+        if (hglb != NULL) {
+            char* lptstr = (char*)GlobalLock(hglb);
+            if (lptstr != NULL) {
+                if (format == CF_UNICODETEXT) {
+                    size_t len = (lstrlenW((wchar_t*)lptstr) + 1) * 2;
+                    char* tmp = (char*)calloc(len, sizeof(*tmp));
+                    if (tmp) {
+                        lptstr = wchar_string_to_utf8((wchar_t*)lptstr, tmp, len);
+                    }
+                    else {
+                        lptstr = NULL;
+                    }
+                }
+                if (lptstr) {
+                    result = (char*)allocator(lstrlenA(lptstr) + 1);
+                    if (result) {
+                        lstrcpyA(result, lptstr);
+                    }
+                }
+                if (format == CF_UNICODETEXT) {
+                    free(lptstr);
+                }
+                GlobalUnlock(hglb);
+            }
+        }
+    }
+    CloseClipboard();
+    return result;
 }

@@ -142,6 +142,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\capture_screen.h" />
     <ClInclude Include="..\comm_with_named_pipe.h" />
     <ClInclude Include="..\proxy_settings.h" />
     <ClInclude Include="..\qrcode_gen.h" />
@@ -158,6 +159,7 @@
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\capture_screen.c" />
     <ClCompile Include="..\comm_with_named_pipe.c" />
     <ClCompile Include="..\proxy_settings.c" />
     <ClCompile Include="..\qrcode_gen.c" />
