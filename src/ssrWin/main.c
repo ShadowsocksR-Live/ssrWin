@@ -378,7 +378,7 @@ static void on_cmd_import_url(HWND hWnd) {
     LoadStringW(hInstance, IDS_APP_NAME, AppName, ARRAYSIZE(AppName));
     LoadStringW(hInstance, IDS_IMPORT_URL, InfoFmt, ARRAYSIZE(InfoFmt));
     wsprintfW(Info, InfoFmt, succ ? L"successfully" : L"failed");
-    uType = (succ ? MB_ICONINFORMATION : MB_ICONWARNING) | MB_OK;
+    uType = (succ ? MB_ICONINFORMATION : MB_ICONERROR) | MB_OK;
     MessageBoxW(hWnd, Info, AppName, uType);
 }
 
