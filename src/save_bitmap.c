@@ -5,10 +5,31 @@
 #include <wincodec.h>
 #include <Windows.h>
 #include <Winerror.h>
+#include <assert.h>
 
 #pragma comment(lib, "Windowscodecs.lib")
 
-HRESULT save_bitmap_to_file(HBITMAP bitmap, const wchar_t* pathname)
+enum image_format {
+    image_format_bitmap = 0,
+    image_format_png = 1,
+    image_format_jpg = 2,
+};
+
+HRESULT _save_bitmap_to_file(HBITMAP bitmap, enum image_format fmt, const wchar_t* pathname);
+
+HRESULT save_bitmap_to_bmp_file(HBITMAP bitmap, const wchar_t* pathname) {
+    return _save_bitmap_to_file(bitmap, image_format_bitmap, pathname);
+};
+
+HRESULT save_bitmap_to_png_file(HBITMAP bitmap, const wchar_t* pathname) {
+    return _save_bitmap_to_file(bitmap, image_format_png, pathname);
+};
+
+HRESULT save_bitmap_to_jpg_file(HBITMAP bitmap, const wchar_t* pathname) {
+    return _save_bitmap_to_file(bitmap, image_format_jpg, pathname);
+};
+
+HRESULT _save_bitmap_to_file(HBITMAP bitmap, enum image_format fmt, const wchar_t* pathname)
 {
     IWICImagingFactory* factory = NULL;
     IWICBitmap* wic_bitmap = NULL;
@@ -52,7 +73,16 @@ HRESULT save_bitmap_to_file(HBITMAP bitmap, const wchar_t* pathname)
     // (5) Create an IWICBitmapEncoder instance, and associate it with the stream.
     encoder = NULL;
     if (SUCCEEDED(hr)) {
-        hr = IWICImagingFactory_CreateEncoder(factory, &GUID_ContainerFormatBmp, NULL, &encoder);
+        if (fmt == image_format_bitmap) {
+            hr = IWICImagingFactory_CreateEncoder(factory, &GUID_ContainerFormatBmp, NULL, &encoder);
+        } else if (fmt == image_format_png) {
+            hr = IWICImagingFactory_CreateEncoder(factory, &GUID_ContainerFormatPng, NULL, &encoder);
+        } else if (fmt == image_format_jpg) {
+            hr = IWICImagingFactory_CreateEncoder(factory, &GUID_ContainerFormatJpeg, NULL, &encoder);
+        } else {
+            assert(0);
+            hr = E_FAIL;
+        }
     }
     if (SUCCEEDED(hr)) {
         hr = IWICBitmapEncoder_Initialize(encoder, (IStream*)stream, WICBitmapEncoderNoCache);
