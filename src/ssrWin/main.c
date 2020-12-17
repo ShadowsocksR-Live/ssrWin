@@ -49,6 +49,7 @@ BOOL on_context_menu(HWND hWnd, HWND targetWnd, LPARAM lParam);
 BOOL on_delete_item(HWND hWnd);
 BOOL on_cmd_qr_code(HWND hWnd);
 BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, int ctlID, LPNMHDR pnmHdr);
+static void view_server_details(HWND hWnd, HWND hWndList);
 static void on_list_view_notification_get_disp_info(NMLVDISPINFOW* plvdi, const struct server_config* config);
 static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, LPARAM lParam);
 static void config_dlg_init(HWND hDlg);
@@ -221,6 +222,9 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             break;
         case ID_CMD_QR_CODE:
             on_cmd_qr_code(hWnd);
+            break;
+        case ID_CMD_SERVER_DETAILS:
+            view_server_details(hWnd, wnd_data->hListView);
             break;
         case ID_CMD_DELETE:
             on_delete_item(hWnd);
@@ -611,6 +615,7 @@ BOOL on_context_menu(HWND hWnd, HWND targetWnd, LPARAM lParam)
     hMenu = GetSubMenu(hMenuLoad, 0);
 
     uEnable = (MF_BYCOMMAND | ((nIndex >= 0) ? MF_ENABLED : (MF_GRAYED | MF_DISABLED)));
+    EnableMenuItem(hMenu, ID_CMD_SERVER_DETAILS, uEnable);
     EnableMenuItem(hMenu, ID_CMD_QR_CODE, uEnable);
     EnableMenuItem(hMenu, ID_CMD_DELETE, uEnable);
 
@@ -767,7 +772,6 @@ BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, int ctlID, LPNMHDR pnmHdr)
     LPNMLVKEYDOWN pnmlvkd;
     HWND hWndList;
     struct server_config* config;
-    int nIndex;
     wchar_t tmp[MAX_PATH] = { 0 };
     if (pnmHdr->idFrom != LIST_VIEW_ID) {
         return FALSE;
@@ -796,27 +800,34 @@ BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, int ctlID, LPNMHDR pnmHdr)
     case NM_DBLCLK:
     case NM_RETURN:
         msgHandled = TRUE;
-        nIndex = ListView_GetNextItem(hWndList, -1, LVNI_SELECTED);
-        if (nIndex >= 0) {
-            HINSTANCE hInstance;
-            config = retrieve_config_from_list_view(hWndList, nIndex);
-            if (config == NULL) {
-                break;
-            }
-            hInstance = (HINSTANCE)GetWindowLongPtrW(hWnd, GWLP_HINSTANCE);
-            if (IDOK == DialogBoxParamW(hInstance,
-                MAKEINTRESOURCEW(IDD_CONFIG_DETAILS),
-                hWnd, ConfigDetailsDlgProc, (LPARAM)config))
-            {
-                ListView_RedrawItems(hWndList, nIndex, nIndex);
-            }
-            SetFocus(hWndList);
-        }
+        view_server_details(hWnd, hWndList);
         break;
     default:
         break;
     }
     return msgHandled;
+}
+
+static void view_server_details(HWND hWnd, HWND hWndList) {
+    HINSTANCE hInstance;
+    struct server_config* config;
+    int nIndex;
+    nIndex = ListView_GetNextItem(hWndList, -1, LVNI_SELECTED);
+    if (nIndex < 0) {
+        return;
+    }
+    config = retrieve_config_from_list_view(hWndList, nIndex);
+    if (config == NULL) {
+        return;
+    }
+    hInstance = (HINSTANCE)GetWindowLongPtrW(hWnd, GWLP_HINSTANCE);
+    if (IDOK == DialogBoxParamW(hInstance,
+        MAKEINTRESOURCEW(IDD_CONFIG_DETAILS),
+        hWnd, ConfigDetailsDlgProc, (LPARAM)config))
+    {
+        ListView_RedrawItems(hWndList, nIndex, nIndex);
+    }
+    SetFocus(hWndList);
 }
 
 static void on_list_view_notification_get_disp_info(NMLVDISPINFOW* plvdi, const struct server_config* config)
