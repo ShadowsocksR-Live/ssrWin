@@ -216,7 +216,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         case ID_CMD_EXIT:
             SendMessageW(hWnd, WM_CLOSE, ID_CMD_EXIT, 0);
             break;
-        case ID_CMD_CONFIG:
+        case ID_CMD_MANAGE_CENTER:
             ShowWindowSimple(hWnd, TRUE);
             break;
         case IDCANCEL:
