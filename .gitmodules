@@ -10,3 +10,6 @@
 	path = depends/libqrencode
 	url = https://github.com/ShadowsocksR-Live/libqrencode.git
 	branch = master
+[submodule "depends/zbar"]
+	path = depends/zbar
+	url = https://github.com/ShadowsocksR-Live/zbar.git

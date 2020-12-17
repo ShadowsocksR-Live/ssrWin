@@ -81,11 +81,14 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..;..\..\depends\privoxy\;..\..\depends\ssr-native\depends;..\..\depends\ssr-native\depends\json-c\win32;..\..\depends\ssr-native\win32\include;..\..\depends\ssr-native\src;..\..\depends\ssr-native\src\client\;..\..\depends\libqrencode\;..\..\depends\zbar\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(OutDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libPrivoxy.lib;json-c.lib;ssr-client-lib.lib;qrencode.lib;zbar.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -95,14 +98,14 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.;..;..\..\depends\privoxy\;..\..\depends\ssr-native\depends;..\..\depends\ssr-native\depends\json-c\win32;..\..\depends\ssr-native\win32\include;..\..\depends\ssr-native\src;..\..\depends\ssr-native\src\client\;..\..\depends\libqrencode\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..;..\..\depends\privoxy\;..\..\depends\ssr-native\depends;..\..\depends\ssr-native\depends\json-c\win32;..\..\depends\ssr-native\win32\include;..\..\depends\ssr-native\src;..\..\depends\ssr-native\src\client\;..\..\depends\libqrencode\;..\..\depends\zbar\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(OutDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libPrivoxy.lib;json-c.lib;ssr-client-lib.lib;qrencode.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libPrivoxy.lib;json-c.lib;ssr-client-lib.lib;qrencode.lib;zbar.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -114,13 +117,16 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..;..\..\depends\privoxy\;..\..\depends\ssr-native\depends;..\..\depends\ssr-native\depends\json-c\win32;..\..\depends\ssr-native\win32\include;..\..\depends\ssr-native\src;..\..\depends\ssr-native\src\client\;..\..\depends\libqrencode\;..\..\depends\zbar\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalLibraryDirectories>$(OutDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libPrivoxy.lib;json-c.lib;ssr-client-lib.lib;qrencode.lib;zbar.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -132,19 +138,23 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..;..\..\depends\privoxy\;..\..\depends\ssr-native\depends;..\..\depends\ssr-native\depends\json-c\win32;..\..\depends\ssr-native\win32\include;..\..\depends\ssr-native\src;..\..\depends\ssr-native\src\client\;..\..\depends\libqrencode\;..\..\depends\zbar\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalLibraryDirectories>$(OutDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libPrivoxy.lib;json-c.lib;ssr-client-lib.lib;qrencode.lib;zbar.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\capture_screen.h" />
     <ClInclude Include="..\comm_with_named_pipe.h" />
     <ClInclude Include="..\proxy_settings.h" />
+    <ClInclude Include="..\qrcode_dec.h" />
     <ClInclude Include="..\qrcode_gen.h" />
     <ClInclude Include="..\run_ssr_client.h" />
     <ClInclude Include="..\save_bitmap.h" />
@@ -162,6 +172,7 @@
     <ClCompile Include="..\capture_screen.c" />
     <ClCompile Include="..\comm_with_named_pipe.c" />
     <ClCompile Include="..\proxy_settings.c" />
+    <ClCompile Include="..\qrcode_dec.c" />
     <ClCompile Include="..\qrcode_gen.c" />
     <ClCompile Include="..\run_ssr_client.c" />
     <ClCompile Include="..\save_bitmap.c" />

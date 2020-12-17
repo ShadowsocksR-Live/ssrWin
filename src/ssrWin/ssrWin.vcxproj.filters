@@ -60,6 +60,9 @@
     <ClInclude Include="..\capture_screen.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\qrcode_dec.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="process_manager.c">
@@ -105,6 +108,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\capture_screen.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\qrcode_dec.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

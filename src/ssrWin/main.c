@@ -13,6 +13,7 @@
 #include "qrcode_gen.h"
 #include "save_bitmap.h"
 #include "capture_screen.h"
+#include "qrcode_dec.h"
 
 HWND hTrayWnd = NULL;
 
@@ -34,7 +35,8 @@ HWND InitInstance(HINSTANCE hInstance, const wchar_t* wndClass, const wchar_t* t
 LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs);
 static void on_wm_destroy(HWND hWnd);
-static void on_cmd_import_url(HWND hWnd);
+static void on_cmd_clipboard_import_url(HWND hWnd);
+static void on_cmd_scan_screen_qrcode(HWND hWnd);
 static int adjust_current_selected_item(int cur_sel, int total_count);
 static void before_tray_menu_popup(HMENU hMenu, void* p);
 static void TrayClickCb(void* p);
@@ -189,10 +191,10 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         switch (cmd_id)
         {
         case ID_CMD_IMPORT_URL:
-            on_cmd_import_url(hWnd);
+            on_cmd_clipboard_import_url(hWnd);
             break;
         case ID_CMD_SCAN_QRCODE:
-            MessageBeep(0);
+            on_cmd_scan_screen_qrcode(hWnd);
             break;
         case ID_FILE_NEW_RECORD:
             config = config_create();
@@ -356,7 +358,7 @@ static void on_wm_destroy(HWND hWnd) {
     free(wnd_data);
 }
 
-static void on_cmd_import_url(HWND hWnd) {
+static void add_ssr_url_to_sub_list_view(HWND hWnd, const char* ssr_url) {
     wchar_t AppName[MAX_PATH] = { 0 };
     wchar_t InfoFmt[MAX_PATH] = { 0 };
     wchar_t Info[MAX_PATH] = { 0 };
@@ -364,7 +366,6 @@ static void on_cmd_import_url(HWND hWnd) {
     UINT uType;
     struct main_wnd_data* wnd_data = (struct main_wnd_data*)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
     HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtrW(hWnd, GWLP_HINSTANCE);
-    char* ssr_url = retrieve_string_from_clipboard(hWnd, &malloc);
     if (ssr_url) {
         struct server_config* config = ssr_qr_code_decode(ssr_url);
         if (config) {
@@ -372,7 +373,6 @@ static void on_cmd_import_url(HWND hWnd) {
             InsertListViewItem(wnd_data->hListView, count, config);
             succ = TRUE;
         }
-        free(ssr_url);
     }
 
     LoadStringW(hInstance, IDS_APP_NAME, AppName, ARRAYSIZE(AppName));
@@ -380,6 +380,20 @@ static void on_cmd_import_url(HWND hWnd) {
     wsprintfW(Info, InfoFmt, succ ? L"successfully" : L"failed");
     uType = (succ ? MB_ICONINFORMATION : MB_ICONERROR) | MB_OK;
     MessageBoxW(hWnd, Info, AppName, uType);
+}
+
+static void on_cmd_clipboard_import_url(HWND hWnd) {
+    char* ssr_url = retrieve_string_from_clipboard(hWnd, &malloc);
+    add_ssr_url_to_sub_list_view(hWnd, ssr_url);
+    free(ssr_url);
+}
+
+static void on_cmd_scan_screen_qrcode(HWND hWnd) {
+    HBITMAP bmp = capture_screen();
+    char* ssr_url = qr_code_decoder(bmp, &malloc);
+    add_ssr_url_to_sub_list_view(hWnd, ssr_url);
+    free(ssr_url);
+    DeleteObject(bmp);
 }
 
 static void modify_popup_menu_items(struct main_wnd_data* wnd_data, HMENU hMenu) {
@@ -697,7 +711,7 @@ static INT_PTR CALLBACK QrCodeDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, L
             saveFileDialog.Flags = OFN_EXPLORER | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT;
             saveFileDialog.lpstrDefExt = L"bmp";
             if (GetSaveFileNameW(&saveFileDialog)) {
-                save_bitmap_to_file(hBmp, szSaveFileName);
+                save_bitmap_to_bmp_file(hBmp, szSaveFileName);
             }
             break;
         case IDOK:
