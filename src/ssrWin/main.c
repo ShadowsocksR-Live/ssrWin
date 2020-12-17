@@ -2,6 +2,8 @@
 #include <WindowsX.h>
 #include <tchar.h>
 #include <CommCtrl.h>
+#include <shlwapi.h>
+#pragma comment(lib, "Shlwapi.lib")
 #include <assert.h>
 #include <ssr_client_api.h>
 #include "resource.h"
@@ -710,13 +712,22 @@ static INT_PTR CALLBACK QrCodeDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, L
             //Save Dialog
             saveFileDialog.lStructSize = sizeof(saveFileDialog);
             saveFileDialog.hwndOwner = hDlg;
-            saveFileDialog.lpstrFilter = L"Bitmap Files (*.bmp)\0*bmp\0All Files (*.*)\0*.*\0\0";
+            saveFileDialog.lpstrFilter = L"PNG Files(*.png)\0*.png\0Bitmap Files(*.bmp)\0*.bmp\0All Files (*.*)\0*.*\0\0";
             saveFileDialog.lpstrFile = szSaveFileName;
             saveFileDialog.nMaxFile = ARRAYSIZE(szSaveFileName);
             saveFileDialog.Flags = OFN_EXPLORER | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT;
             saveFileDialog.lpstrDefExt = L"bmp";
             if (GetSaveFileNameW(&saveFileDialog)) {
-                save_bitmap_to_bmp_file(hBmp, szSaveFileName);
+                LPCWSTR end = StrRChrW(szSaveFileName, NULL, L'.');
+                if (StrCmpW(end, L".png") == 0) {
+                    save_bitmap_to_png_file(hBmp, szSaveFileName);
+                }
+                else if (StrCmpW(end, L".bmp") == 0) {
+                    save_bitmap_to_bmp_file(hBmp, szSaveFileName);
+                }
+                else {
+                    DebugBreak();
+                }
             }
             break;
         case IDOK:
