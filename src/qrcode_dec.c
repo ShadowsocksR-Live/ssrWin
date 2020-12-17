@@ -1,5 +1,3 @@
-#include <windows.h>
-#include <tchar.h>
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -12,9 +10,8 @@
 #include <zbar.h>
 
 #include "qrcode_dec.h"
-#include "save_bitmap.h"
 
-char* qr_code_decoder(HBITMAP hBmp, void* (*allocator)(size_t)) {
+char* qr_code_decoder(get_img_data_cb get_data, void* ctx, void* (*allocator)(size_t)) {
     char* result = NULL;
     int width, height, n;
     unsigned char* raw = NULL;
@@ -22,14 +19,14 @@ char* qr_code_decoder(HBITMAP hBmp, void* (*allocator)(size_t)) {
     const zbar_symbol_t *symbol;
     zbar_image_scanner_t *scanner = NULL;
 
-    if (hBmp == NULL || allocator == NULL) {
+    if (get_data == NULL || allocator == NULL) {
         return NULL;
     }
 
     /* obtain image data */
     width = 0, height = 0;
     raw = NULL;
-    extract_bitmap_in_grayscale_8bpp(hBmp, &width, &height, &raw);
+    get_data(ctx, &malloc, &width, &height, &raw);
     if (raw == NULL) {
         return result;
     }

@@ -195,7 +195,7 @@ void bitmap_grayscale(HBITMAP hbitmap)
     free(bits);
 }
 
-void extract_bitmap_in_grayscale_8bpp(HBITMAP hbitmap, int* pWidth, int* pHeight, BYTE** pData)
+void extract_bitmap_in_grayscale_8bpp(HBITMAP hbitmap, void* (*allocator)(size_t), int* pWidth, int* pHeight, unsigned char** pData)
 {
     HDC hdc;
     DWORD size;
@@ -204,6 +204,10 @@ void extract_bitmap_in_grayscale_8bpp(HBITMAP hbitmap, int* pWidth, int* pHeight
     int stride, x, y;
     BYTE* bits;
     BYTE* target_data;
+
+    if (allocator == NULL || pData == NULL) {
+        return;
+    }
 
     GetObject(hbitmap, sizeof(bm), &bm);
     if (bm.bmBitsPixel < 24) {
@@ -224,7 +228,7 @@ void extract_bitmap_in_grayscale_8bpp(HBITMAP hbitmap, int* pWidth, int* pHeight
 
     stride = bm.bmWidth + (bm.bmWidth * bm.bmBitsPixel / 8) % 4;
     bits = (BYTE*)calloc(size, sizeof(*bits));
-    target_data = (BYTE*)calloc(bm.bmWidth * bm.bmHeight, sizeof(*target_data));
+    target_data = (BYTE*)allocator(bm.bmWidth * bm.bmHeight * sizeof(*target_data));
     GetDIBits(hdc, hbitmap, 0, bm.bmHeight, bits, &bmi, DIB_RGB_COLORS);
     for (y = 0; y < bm.bmHeight; y++) {
         for (x = 0; x < stride; x++) {
@@ -237,12 +241,8 @@ void extract_bitmap_in_grayscale_8bpp(HBITMAP hbitmap, int* pWidth, int* pHeight
     ReleaseDC(HWND_DESKTOP, hdc);
     free(bits);
 
-    if (pData) {
-        *pData = target_data;
-    }
-    else {
-        free(target_data);
-    }
+    *pData = target_data;
+
     if (pWidth) {
         *pWidth = (int)bm.bmWidth;
     }

@@ -394,9 +394,13 @@ static void on_cmd_clipboard_import_url(HWND hWnd) {
     free(ssr_url);
 }
 
+static void get_img_data_agent(void* ctx, void* (*allocator)(size_t), int* pWidth, int* pHeight, unsigned char** pData) {
+    extract_bitmap_in_grayscale_8bpp((HBITMAP)ctx, allocator, pWidth, pHeight, pData);
+}
+
 static void on_cmd_scan_screen_qrcode(HWND hWnd) {
     HBITMAP bmp = capture_screen();
-    char* ssr_url = qr_code_decoder(bmp, &malloc);
+    char* ssr_url = qr_code_decoder(&get_img_data_agent, (void*)bmp, &malloc);
     add_ssr_url_to_sub_list_view(hWnd, ssr_url);
     free(ssr_url);
     DeleteObject(bmp);

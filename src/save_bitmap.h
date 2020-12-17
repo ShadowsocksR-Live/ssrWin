@@ -9,5 +9,4 @@ HRESULT save_bitmap_to_jpg_file(HBITMAP bitmap, const wchar_t* pathname);
 HBITMAP bitmap_clone(HBITMAP srcBmp);
 void bitmap_grayscale(HBITMAP hbitmap);
 
-void extract_bitmap_in_grayscale_8bpp(HBITMAP hbitmap, int* pWidth, int* pHeight, BYTE** pData);
-
+void extract_bitmap_in_grayscale_8bpp(HBITMAP hbitmap, void* (*allocator)(size_t), int* pWidth, int* pHeight, unsigned char** pData);
