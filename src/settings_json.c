@@ -295,6 +295,23 @@ struct json_object* build_json_from_config(struct server_config* config) {
     return jso;
 }
 
+bool save_single_config_to_json_file(struct server_config* config, const char* file_path) {
+    struct json_object* jso;
+    int flags;
+    if (config == NULL || file_path == NULL) {
+        return false;
+    }
+    jso = build_json_from_config(config);
+    if (jso == NULL) {
+        return false;
+    }
+    flags = JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY;
+    if (json_object_to_file_ext(file_path, jso, flags) == -1) {
+        return false;
+    }
+    return true;
+}
+
 struct config_json_saver {
     struct json_object* jso_array;
     char* file_path;

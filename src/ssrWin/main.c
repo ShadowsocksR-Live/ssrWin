@@ -49,6 +49,7 @@ BOOL InitListViewColumns(HWND hWndListView);
 BOOL InsertListViewItem(HWND hWndListView, int index, struct server_config* config);
 BOOL on_context_menu(HWND hWnd, HWND targetWnd, LPARAM lParam);
 BOOL on_delete_item(HWND hWnd);
+BOOL on_cmd_server_export_to_json(HWND hWnd);
 BOOL on_cmd_qr_code(HWND hWnd);
 BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, int ctlID, LPNMHDR pnmHdr);
 static void view_server_details(HWND hWnd, HWND hWndList);
@@ -221,6 +222,9 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             break;
         case IDCANCEL:
             SendMessageW(hWnd, WM_CLOSE, 0, 0);
+            break;
+        case ID_CMD_SERVER_TO_JSON:
+            on_cmd_server_export_to_json(hWnd);
             break;
         case ID_CMD_QR_CODE:
             on_cmd_qr_code(hWnd);
@@ -623,6 +627,7 @@ BOOL on_context_menu(HWND hWnd, HWND targetWnd, LPARAM lParam)
     uEnable = (MF_BYCOMMAND | ((nIndex >= 0) ? MF_ENABLED : (MF_GRAYED | MF_DISABLED)));
     EnableMenuItem(hMenu, ID_CMD_SERVER_DETAILS, uEnable);
     EnableMenuItem(hMenu, ID_CMD_QR_CODE, uEnable);
+    EnableMenuItem(hMenu, ID_CMD_SERVER_TO_JSON, uEnable);
     EnableMenuItem(hMenu, ID_CMD_DELETE, uEnable);
 
     TrackPopupMenu(hMenu,
@@ -716,7 +721,7 @@ static INT_PTR CALLBACK QrCodeDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, L
             //Save Dialog
             saveFileDialog.lStructSize = sizeof(saveFileDialog);
             saveFileDialog.hwndOwner = hDlg;
-            saveFileDialog.lpstrFilter = L"PNG Files(*.png)\0*.png\0Bitmap Files(*.bmp)\0*.bmp\0All Files (*.*)\0*.*\0\0";
+            saveFileDialog.lpstrFilter = L"PNG Files (*.png)\0*.png\0Bitmap Files (*.bmp)\0*.bmp\0All Files (*.*)\0*.*\0\0";
             saveFileDialog.lpstrFile = szSaveFileName;
             saveFileDialog.nMaxFile = ARRAYSIZE(szSaveFileName);
             saveFileDialog.Flags = OFN_EXPLORER | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT;
@@ -743,6 +748,37 @@ static INT_PTR CALLBACK QrCodeDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, L
         return TRUE;
     }
     return FALSE;
+}
+
+BOOL on_cmd_server_export_to_json(HWND hWnd) {
+    struct main_wnd_data* wnd_data = (struct main_wnd_data*)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
+    HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtrW(hWnd, GWLP_HINSTANCE);
+    int nIndex = ListView_GetNextItem(wnd_data->hListView, -1, LVNI_SELECTED);
+    struct server_config* config;
+    if (nIndex < 0) {
+        return FALSE;
+    }
+    config = retrieve_config_from_list_view(wnd_data->hListView, nIndex);
+    if (config == NULL) {
+        return FALSE;
+    }
+    {
+        OPENFILENAMEA saveFileDialog = { 0 };
+        char szSaveFileName[MAX_PATH] = { 0 };
+
+        saveFileDialog.lStructSize = sizeof(saveFileDialog);
+        saveFileDialog.hwndOwner = hWnd;
+        saveFileDialog.lpstrFilter = "JSON Files (*.json)\0*.json\0All Files (*.*)\0*.*\0\0";
+        saveFileDialog.lpstrFile = szSaveFileName;
+        saveFileDialog.nMaxFile = ARRAYSIZE(szSaveFileName);
+        saveFileDialog.Flags = OFN_EXPLORER | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT;
+        saveFileDialog.lpstrDefExt = "json";
+        if (GetSaveFileNameA(&saveFileDialog)) {
+            save_single_config_to_json_file(config, szSaveFileName);
+        }
+    }
+    SetFocus(wnd_data->hListView);
+    return TRUE;
 }
 
 BOOL on_cmd_qr_code(HWND hWnd) {
