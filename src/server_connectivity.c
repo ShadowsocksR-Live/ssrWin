@@ -56,7 +56,7 @@ int server_connectivity(const char *host, int port) {
         }
 
         if (addr) {
-        if ((cliSock = socket(addr->ai_family, addr->ai_socktype, 0)) == -1) {
+        if ((cliSock = (int)socket(addr->ai_family, addr->ai_socktype, 0)) == -1) {
             printf("Socket Error: %d\n", errno);
             break;
         } else {
@@ -77,7 +77,7 @@ int server_connectivity(const char *host, int port) {
             printf("Client Connection created\n");
         }
         } else {
-            if ((cliSock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+            if ((cliSock = (int)socket(AF_INET, SOCK_STREAM, 0)) == -1) {
                 break;
             }
             c = connect(cliSock, (struct sockaddr *)&dest_addr, sizeof(struct sockaddr));
@@ -141,5 +141,37 @@ int convert_host_name_to_ip_string (const char *host, char *ipString, size_t len
         strncpy(ipString, ip, len);
         result = 0;
     } while (0);
+    return result;
+}
+
+bool tcp_port_is_occupied(const char* listen_addr, int port) {
+    bool result = false;
+    char tmp[256] = { 0 };
+    struct sockaddr_in *service = (struct sockaddr_in *)tmp;
+    int sd;
+
+#if defined(WIN32) || defined(_WIN32)
+    static bool flag = false;
+    if (!flag) {
+        WSADATA wsaData;
+        WSAStartup(MAKEWORD(2, 2), &wsaData);
+        flag = true;
+    }
+#endif
+    sd = (int)socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sd == -1) {
+        return true;
+    }
+    service->sin_family = AF_INET;
+    service->sin_addr.s_addr = inet_addr(listen_addr);
+    service->sin_port = htons((unsigned short)port);
+    if (bind(sd, (struct sockaddr*)service, sizeof(tmp)) != 0) {
+        result = true;
+    }
+#if defined(WIN32) || defined(_WIN32)
+    closesocket(sd);
+#else
+    close(sd);
+#endif
     return result;
 }
