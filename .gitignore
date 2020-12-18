@@ -1,4 +1,5 @@
 .vs/
+.vscode/
 *.user
 *.suo
 *.sdf
