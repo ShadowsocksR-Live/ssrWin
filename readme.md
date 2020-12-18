@@ -1,6 +1,6 @@
 # SSR client for Windows
 
-This client integrates SSRoT functions and is simple to operate.
+This client integrates [SSRoT](https://github.com/ShadowsocksR-Live/shadowsocksr-native/wiki) functions and is simple to operate.
 
 This software is open source software.
 
