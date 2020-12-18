@@ -4,7 +4,12 @@ This client integrates SSRoT functions for simple operation.
 
 This software is open source software.
 
+[SSRoT](https://github.com/ShadowsocksR-Live/shadowsocksr-native/wiki) server installation tutorial is [here](https://github.com/ShadowsocksR-Live/shadowsocksr-native/wiki/%E5%85%A8%E8%87%AA%E5%8A%A8%E5%AE%89%E8%A3%85-SSRoT-%E6%9C%8D%E5%8A%A1%E5%99%A8).
+
 # Build
+
+You must use `git` to obtain source code.
+
 ```
 git clone https://github.com/ShadowsocksR-Live/ssrWin.git
 cd ssrWin
