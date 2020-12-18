@@ -67,6 +67,7 @@ static char* retrieve_string_from_clipboard(HWND hWnd, void* (*allocator)(size_t
 
 int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmdLine, int nCmdShow)
 {
+    HANDLE hMutexHandle;
     HWND hMainDlg;
     MSG msg = { 0 };
     BOOL bRet = FALSE;
@@ -77,6 +78,11 @@ int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmd
     wchar_t WndClass[MAX_PATH] = { 0 };
     wchar_t AppName[MAX_PATH] = { 0 };
     UNREFERENCED_PARAMETER(lpszCmdLine);
+
+    hMutexHandle = CreateMutexW(NULL, TRUE, L"ssr_win_single_instance");
+    if (GetLastError() == ERROR_ALREADY_EXISTS) {
+        return 0;
+    }
 
     CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
 
@@ -117,6 +123,9 @@ int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmd
     }
 
     CoUninitialize();
+
+    ReleaseMutex(hMutexHandle);
+    CloseHandle(hMutexHandle);
 
     return (int)msg.wParam;
 }
