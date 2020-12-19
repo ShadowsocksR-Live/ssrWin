@@ -165,7 +165,10 @@ HWND InitInstance(HINSTANCE hInstance, const wchar_t* wndClass, const wchar_t* t
     HWND hWnd = CreateWindowW(wndClass, title, WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, NULL, NULL, hInstance, NULL);
     if (IsWindow(hWnd)) {
-        ShowWindow(hWnd, nCmdShow);
+        struct main_wnd_data* wnd_data = NULL;
+        wnd_data = (struct main_wnd_data*)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
+
+        ShowWindow(hWnd, wnd_data->auto_connect ? SW_HIDE : nCmdShow);
         UpdateWindow(hWnd);
     }
     return hWnd;
@@ -396,6 +399,21 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
         }
     }
     set_dump_info_callback(dump_info_callback, wnd_data);
+
+    do {
+        static struct server_config* config;
+        int index = wnd_data->cur_selected;
+        if (wnd_data->auto_connect == FALSE) {
+            break;
+        }
+        if (index < 0 || index >= ListView_GetItemCount(wnd_data->hListView)) {
+            break;
+        }
+        assert(wnd_data->client_ctx == NULL);
+        config = retrieve_config_from_list_view(wnd_data->hListView, index);
+        assert(config);
+        wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data->ssr_listen_port, wnd_data->privoxy_listen_port, wnd_data->delay_quit_ms);
+    } while (0);
 }
 
 static void on_wm_destroy(HWND hWnd) {
