@@ -25,12 +25,22 @@ struct main_wnd_data {
     char settings_file[MAX_PATH];
     int cur_selected;
     struct ssr_client_ctx* client_ctx;
+
+    // system settings
+    BOOL auto_run;
+    BOOL auto_connect;
+    int ssr_listen_port;
+    int privoxy_listen_port;
+    int delay_quit_ms;
 };
 
 #define TRAY_ICON_ID 1
 #define LIST_VIEW_ID 55
 #define MENU_ID_NODE_BEGINNING 60000
+
+#define APP_NAME_KEY "ssrWin"
 #define APP_REG_KEY L"Software\\ssrwin"
+#define AUTO_RUN_REG_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
 
 ATOM RegisterWndClass(HINSTANCE hInstance, const wchar_t* szWindowClass);
 HWND InitInstance(HINSTANCE hInstance, const wchar_t* wndClass, const wchar_t* title, int nCmdShow);
@@ -55,6 +65,7 @@ BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, int ctlID, LPNMHDR pnmHdr);
 static void view_server_details(HWND hWnd, HWND hWndList);
 static void on_list_view_notification_get_disp_info(NMLVDISPINFOW* plvdi, const struct server_config* config);
 static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, LPARAM lParam);
+static INT_PTR CALLBACK OptionsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, LPARAM lParam);
 static void config_dlg_init(HWND hDlg);
 static void load_config_to_dlg(HWND hDlg, const struct server_config* config);
 static void save_dlg_to_config(HWND hDlg, struct server_config* config);
@@ -203,13 +214,19 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         cmd_id = LOWORD(wParam);
         switch (cmd_id)
         {
+        case ID_CMD_OPTIONS:
+            DialogBoxParamW(hInstance,
+                MAKEINTRESOURCEW(IDD_OPTIONS),
+                hWnd, OptionsDlgProc, (LPARAM)wnd_data);
+            SetFocus(wnd_data->hListView);
+            break;
         case ID_CMD_IMPORT_URL:
             on_cmd_clipboard_import_url(hWnd);
             break;
         case ID_CMD_SCAN_QRCODE:
             on_cmd_scan_screen_qrcode(hWnd);
             break;
-        case ID_FILE_NEW_RECORD:
+        case ID_CMD_NEW_RECORD:
             config = config_create();
             if (IDOK == DialogBoxParamW(hInstance,
                 MAKEINTRESOURCEW(IDD_CONFIG_DETAILS),
@@ -256,7 +273,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             else {
                 assert(wnd_data->client_ctx == NULL);
                 config = retrieve_config_from_list_view(wnd_data->hListView, wnd_data->cur_selected);
-                wnd_data->client_ctx = ssr_client_begin_run(config, 0, PRIVOXY_LISTEN_PORT, 500);
+                wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data->ssr_listen_port, wnd_data->privoxy_listen_port, wnd_data->delay_quit_ms);
             }
             break;
         case ID_CMD_STOP:
@@ -317,6 +334,13 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
     wnd_data = (struct main_wnd_data*)calloc(1, sizeof(*wnd_data));
     SetWindowLongPtrW(hWnd, GWLP_USERDATA, (LONG_PTR)wnd_data);
     wnd_data->cur_selected = -1;
+
+    wnd_data->auto_connect = FALSE;
+    wnd_data->auto_run = FALSE;
+    wnd_data->ssr_listen_port = 0;
+    wnd_data->privoxy_listen_port = PRIVOXY_LISTEN_PORT;
+    wnd_data->delay_quit_ms = SSR_DELAY_QUIT_MIN;
+
     wnd_data->hMainDlg = hWnd;
     RestoreWindowPos(hWnd);
     wnd_data->hListView = create_list_view(hWnd, pcs->hInstance);
@@ -340,8 +364,35 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
         if (lRet == ERROR_SUCCESS) {
             dwtype = REG_BINARY;
             sizeBuff = sizeof(wnd_data->cur_selected);
-            RegQueryValueExW(hKey, L"cur_selected", 0, &dwtype, (BYTE*)&wnd_data->cur_selected, &sizeBuff);
+            lRet = RegQueryValueExW(hKey, L"cur_selected", 0, &dwtype, (BYTE*)&wnd_data->cur_selected, &sizeBuff);
+
+            sizeBuff = sizeof(wnd_data->auto_connect);
+            lRet = RegQueryValueExW(hKey, L"auto_connect", 0, &dwtype, (BYTE*)&wnd_data->auto_connect, &sizeBuff);
+
+            sizeBuff = sizeof(wnd_data->ssr_listen_port);
+            lRet = RegQueryValueExW(hKey, L"ssr_listen_port", 0, &dwtype, (BYTE*)&wnd_data->ssr_listen_port, &sizeBuff);
+
+            sizeBuff = sizeof(wnd_data->privoxy_listen_port);
+            lRet = RegQueryValueExW(hKey, L"privoxy_listen_port", 0, &dwtype, (BYTE*)&wnd_data->privoxy_listen_port, &sizeBuff);
+
+            sizeBuff = sizeof(wnd_data->delay_quit_ms);
+            lRet = RegQueryValueExW(hKey, L"delay_quit_ms", 0, &dwtype, (BYTE*)&wnd_data->delay_quit_ms, &sizeBuff);
+
             RegCloseKey(hKey);
+        }
+    }
+    {
+        HKEY hKey = NULL;
+        LSTATUS lRet = RegOpenKeyExW(HKEY_CURRENT_USER, AUTO_RUN_REG_KEY, 0, KEY_READ, &hKey);
+        if (lRet == ERROR_SUCCESS) {
+            char *tmp;
+            char path[MAX_PATH] = { 0 };
+            DWORD dwtype = REG_SZ, sizeBuff = sizeof(path);
+            RegQueryValueExA(hKey, APP_NAME_KEY, 0, &dwtype, (BYTE*)path, &sizeBuff);
+            RegCloseKey(hKey);
+            tmp = exe_file_path(&malloc);
+            wnd_data->auto_run = (lstrcmpA(tmp, path) == 0) ? 1 : 0;
+            free(tmp);
         }
     }
     set_dump_info_callback(dump_info_callback, wnd_data);
@@ -371,8 +422,30 @@ static void on_wm_destroy(HWND hWnd) {
             break;
         }
         RegSetValueExW(hKey, L"cur_selected", 0, REG_BINARY, (BYTE*)&wnd_data->cur_selected, sizeof(wnd_data->cur_selected));
+
+        RegSetValueExW(hKey, L"auto_connect", 0, REG_BINARY, (BYTE*)&wnd_data->auto_connect, sizeof(wnd_data->auto_connect));
+        RegSetValueExW(hKey, L"ssr_listen_port", 0, REG_BINARY, (BYTE*)&wnd_data->ssr_listen_port, sizeof(wnd_data->ssr_listen_port));
+        RegSetValueExW(hKey, L"privoxy_listen_port", 0, REG_BINARY, (BYTE*)&wnd_data->privoxy_listen_port, sizeof(wnd_data->privoxy_listen_port));
+        RegSetValueExW(hKey, L"delay_quit_ms", 0, REG_BINARY, (BYTE*)&wnd_data->delay_quit_ms, sizeof(wnd_data->delay_quit_ms));
+
         RegCloseKey(hKey);
     } while (0);
+    {
+        HKEY hKey = NULL;
+        LSTATUS lRet = RegOpenKeyExW(HKEY_CURRENT_USER, AUTO_RUN_REG_KEY, 0, KEY_WRITE, &hKey);
+        if (lRet == ERROR_SUCCESS) {
+            if (wnd_data->auto_run) {
+                char *tmp = exe_file_path(&malloc);
+                lRet = RegSetValueExA(hKey, APP_NAME_KEY, 0, REG_SZ, (BYTE*)tmp, lstrlenA(tmp) + 1);
+                if (lRet != ERROR_SUCCESS) {
+                    DebugBreak();
+                }
+                free(tmp);
+            } else {
+                RegDeleteValueA(hKey, APP_NAME_KEY);
+            }
+        }
+    }
 
     free(wnd_data);
 }
@@ -977,6 +1050,54 @@ static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wP
             // fall through.
         case IDCANCEL:
             config = NULL;
+            EndDialog(hDlg, wParam);
+            break;
+        }
+        return TRUE;
+    }
+    return FALSE;
+}
+
+static INT_PTR CALLBACK OptionsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, LPARAM lParam)
+{
+    static struct main_wnd_data* wnd_data = NULL;
+    HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtrW(hDlg, GWLP_HINSTANCE);
+    HICON hIconApp;
+    switch (uMessage)
+    {
+    case WM_INITDIALOG:
+        RestoreWindowPos(hDlg);
+        wnd_data = (struct main_wnd_data*)lParam;
+        hIconApp = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SSRWIN));
+        SendMessage(hDlg, WM_SETICON, ICON_BIG, (LPARAM)hIconApp);
+
+        CheckDlgButton(hDlg, IDC_CHK_AUTO_RUN, wnd_data->auto_run);
+        CheckDlgButton(hDlg, IDC_CHK_AUTO_CONN, wnd_data->auto_connect);
+        SetDlgItemInt(hDlg, IDC_EDT_SSR_PORT, wnd_data->ssr_listen_port, FALSE);
+        SetDlgItemInt(hDlg, IDC_EDT_PRIVOXY_PORT, wnd_data->privoxy_listen_port, FALSE);
+        SetDlgItemInt(hDlg, IDC_EDT_DELAY_MS, wnd_data->delay_quit_ms, FALSE);
+
+        return TRUE;
+    case WM_COMMAND:
+        switch (wParam)
+        {
+        case IDC_BTN_RESET:
+            CheckDlgButton(hDlg, IDC_CHK_AUTO_RUN, FALSE);
+            CheckDlgButton(hDlg, IDC_CHK_AUTO_CONN, FALSE);
+            SetDlgItemTextW(hDlg, IDC_EDT_SSR_PORT, L"0");
+            SetDlgItemInt(hDlg, IDC_EDT_PRIVOXY_PORT, PRIVOXY_LISTEN_PORT, FALSE);
+            SetDlgItemInt(hDlg, IDC_EDT_DELAY_MS, SSR_DELAY_QUIT_MIN, FALSE);
+            break;
+        case IDOK:
+            assert(wnd_data);
+            wnd_data->auto_run = IsDlgButtonChecked(hDlg, IDC_CHK_AUTO_RUN);
+            wnd_data->auto_connect = IsDlgButtonChecked(hDlg, IDC_CHK_AUTO_CONN);
+            wnd_data->ssr_listen_port = GetDlgItemInt(hDlg, IDC_EDT_SSR_PORT, NULL, FALSE);
+            wnd_data->privoxy_listen_port = GetDlgItemInt(hDlg, IDC_EDT_PRIVOXY_PORT, NULL, FALSE);
+            wnd_data->delay_quit_ms = GetDlgItemInt(hDlg, IDC_EDT_DELAY_MS, NULL, FALSE);
+            // fall through.
+        case IDCANCEL:
+            wnd_data = NULL;
             EndDialog(hDlg, wParam);
             break;
         }
