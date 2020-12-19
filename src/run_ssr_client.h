@@ -7,10 +7,15 @@
 extern "C" {
 #endif
 
+#define SSR_DELAY_QUIT_MIN 500
+
+#define PRIVOXY_LISTEN_ADDR L"127.0.0.1"
+#define PRIVOXY_LISTEN_PORT 8118
+
 struct ssr_client_ctx;
 struct server_config;
 
-struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config);
+struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, int ssr_listen_port, int proxy_listen_port, int delay_quit_ms);
 void ssr_client_terminate(struct ssr_client_ctx* ctx);
 
 #ifdef __cplusplus

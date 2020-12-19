@@ -256,7 +256,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             else {
                 assert(wnd_data->client_ctx == NULL);
                 config = retrieve_config_from_list_view(wnd_data->hListView, wnd_data->cur_selected);
-                wnd_data->client_ctx = ssr_client_begin_run(config);
+                wnd_data->client_ctx = ssr_client_begin_run(config, 0, PRIVOXY_LISTEN_PORT, 500);
             }
             break;
         case ID_CMD_STOP:

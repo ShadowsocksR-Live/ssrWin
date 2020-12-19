@@ -6,9 +6,7 @@
 #include <ssr_client_api.h>
 #include "run_ssr_client.h"
 #include "proxy_settings.h"
-
-#define PRIVOXY_LISTEN_ADDR L"127.0.0.1"
-#define PRIVOXY_LISTEN_PORT 8118
+#include "server_connectivity.h"
 
 #define PRIVOXY_CONFIG_CONTENT_FMT \
     "listen-address  127.0.0.1:%d\r\n" \
@@ -24,26 +22,60 @@ struct ssr_client_ctx {
     HANDLE hOrderKeeper;
     struct server_config* config;
     struct ssr_client_state* state;
+    int delay_ms;
     uint16_t real_listen_port;
+    uint16_t privoxy_listen_port;
 };
 
-struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config) {
-    struct ssr_client_ctx* ctx = (struct ssr_client_ctx*)calloc(1, sizeof(*ctx));
+struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, int ssr_listen_port, int proxy_listen_port, int delay_quit_ms)
+{
+    struct ssr_client_ctx* ctx = NULL;
     DWORD threadId = 0;
+
+    if (ssr_listen_port != 0) {
+        if (tcp_port_is_occupied("0.0.0.0", ssr_listen_port) ||
+            tcp_port_is_occupied("127.0.0.1", ssr_listen_port))
+        {
+            return NULL;
+        }
+    }
+
+    if (proxy_listen_port != 0) {
+        if (tcp_port_is_occupied("0.0.0.0", proxy_listen_port) ||
+            tcp_port_is_occupied("127.0.0.1", proxy_listen_port))
+        {
+            return NULL;
+        }
+    } else {
+        // TODO: Privoxy not allow listen port is ZERO recently.
+        DebugBreak();
+        return NULL;
+    }
+
+    ctx = (struct ssr_client_ctx*)calloc(1, sizeof(*ctx));
 
     ctx->config = config_clone(config);
 
-    // change listen_port to 0, thus we will get a dynamic listen port.
-    ctx->config->listen_port = 0;
+    // if we change listen_port to 0, then we will get a dynamic listen port.
+    ctx->config->listen_port = (unsigned short)ssr_listen_port;
+    ctx->privoxy_listen_port = (uint16_t)proxy_listen_port;
+    ctx->delay_ms = (delay_quit_ms < SSR_DELAY_QUIT_MIN) ? SSR_DELAY_QUIT_MIN : delay_quit_ms;
 
     ctx->hOrderKeeper = CreateEvent(NULL, TRUE, FALSE, NULL);
     ctx->hSsrClient = CreateThread(NULL, 0, SsrClientThread, ctx, 0, &threadId);
     WaitForSingleObject(ctx->hOrderKeeper, INFINITE);
     CloseHandle(ctx->hOrderKeeper);
 
-    ctx->hPrivoxySvr = CreateThread(NULL, 0, PrivoxyThread, ctx, 0, &threadId);
-
-    enable_system_proxy(PRIVOXY_LISTEN_ADDR, PRIVOXY_LISTEN_PORT);
+    if (ssr_get_client_error_code(ctx->state) == 0) {
+        ctx->hPrivoxySvr = CreateThread(NULL, 0, PrivoxyThread, ctx, 0, &threadId);
+        enable_system_proxy(PRIVOXY_LISTEN_ADDR, ctx->privoxy_listen_port);
+    } else {
+        WaitForSingleObject(ctx->hSsrClient, INFINITE);
+        CloseHandle(ctx->hSsrClient);
+        config_release(ctx->config);
+        free(ctx);
+        ctx = NULL;
+    }
 
     return ctx;
 }
@@ -68,7 +100,7 @@ void ssr_client_terminate(struct ssr_client_ctx* ctx) {
 static void ssr_feedback_state(struct ssr_client_state* state, void* p) {
     struct ssr_client_ctx* ctx = (struct ssr_client_ctx*)p;
     SOCKET socket;
-    state_set_force_quit(state, true); // force_quit flag
+    state_set_force_quit(state, true, ctx->delay_ms); // force_quit flag
     socket = (SOCKET)ssr_get_listen_socket_fd(state);
     ctx->real_listen_port = retrieve_socket_port(socket);
     ctx->state = state;
@@ -109,7 +141,7 @@ static DWORD WINAPI PrivoxyThread(LPVOID lpParam) {
     }
 
     assert(ctx->real_listen_port != 0);
-    sprintf(content, PRIVOXY_CONFIG_CONTENT_FMT, PRIVOXY_LISTEN_PORT, ctx->real_listen_port);
+    sprintf(content, PRIVOXY_CONFIG_CONTENT_FMT, ctx->privoxy_listen_port, ctx->real_listen_port);
 
     hFile = CreateFileA(privoxy_config_file, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hFile == INVALID_HANDLE_VALUE) {
