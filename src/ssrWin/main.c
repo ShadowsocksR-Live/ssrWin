@@ -168,7 +168,7 @@ HWND InitInstance(HINSTANCE hInstance, const wchar_t* wndClass, const wchar_t* t
         struct main_wnd_data* wnd_data = NULL;
         wnd_data = (struct main_wnd_data*)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
 
-        ShowWindow(hWnd, wnd_data->auto_connect ? SW_HIDE : nCmdShow);
+        ShowWindow(hWnd, wnd_data->client_ctx ? SW_HIDE : nCmdShow);
         UpdateWindow(hWnd);
     }
     return hWnd;
