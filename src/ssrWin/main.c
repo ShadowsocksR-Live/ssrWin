@@ -956,6 +956,9 @@ BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, int ctlID, LPNMHDR pnmHdr)
         if (pnmlvkd->wVKey == VK_DELETE) {
             on_delete_item(hWnd);
         }
+        if (pnmlvkd->wVKey == VK_ESCAPE) {
+            ShowWindowSimple(hWnd, FALSE);
+        }
         break;
     case NM_DBLCLK:
     case NM_RETURN:
