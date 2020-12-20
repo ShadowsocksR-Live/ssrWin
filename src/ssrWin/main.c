@@ -75,6 +75,7 @@ static struct server_config* retrieve_config_from_list_view(HWND hListView, int 
 
 static void json_config_iter(struct server_config* config, void* p);
 static char* retrieve_string_from_clipboard(HWND hWnd, void* (*allocator)(size_t));
+static void SetFocusToPreviousInstance(const wchar_t* windowClass, const wchar_t* windowCaption);
 
 int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmdLine, int nCmdShow)
 {
@@ -90,17 +91,19 @@ int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmd
     wchar_t AppName[MAX_PATH] = { 0 };
     UNREFERENCED_PARAMETER(lpszCmdLine);
 
+    LoadStringW(hInstance, IDS_MAIN_WND_CLASS, WndClass, ARRAYSIZE(WndClass));
+    LoadStringW(hInstance, IDS_APP_NAME, AppName, ARRAYSIZE(AppName));
+
     hMutexHandle = CreateMutexW(NULL, TRUE, L"ssr_win_single_instance");
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
+        SetFocusToPreviousInstance(WndClass, AppName);
         return 0;
     }
 
     CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
 
-    LoadStringW(hInstance, IDS_MAIN_WND_CLASS, WndClass, ARRAYSIZE(WndClass));
     RegisterWndClass(hInstance, WndClass);
 
-    LoadStringW(hInstance, IDS_APP_NAME, AppName, ARRAYSIZE(AppName));
     hMainDlg = InitInstance(hInstance, WndClass, AppName, nCmdShow);
 
     {
@@ -1352,4 +1355,18 @@ static char* retrieve_string_from_clipboard(HWND hWnd, void* (*allocator)(size_t
     }
     CloseClipboard();
     return result;
+}
+
+static void SetFocusToPreviousInstance(const wchar_t* windowClass, const wchar_t* windowCaption) {
+    HWND hWnd = FindWindowW(windowClass, windowCaption);
+    if (hWnd != NULL) {
+        HWND hPopupWnd = GetLastActivePopup(hWnd);
+        if (hPopupWnd != NULL && IsWindowEnabled(hPopupWnd)) {
+            hWnd = hPopupWnd;
+        }
+        SetForegroundWindow(hWnd);
+        if (IsIconic(hWnd) || FALSE == IsWindowVisible(hWnd)) {
+            ShowWindow(hWnd, SW_RESTORE);
+        }
+    }
 }
