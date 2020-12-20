@@ -217,6 +217,13 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         on_wm_destroy(hWnd);
         passToNext = FALSE;
         break;
+    case WM_QUERYENDSESSION:
+        DestroyWindow(hWnd);
+        break;
+    case WM_ENDSESSION:
+        // TODO: Always handle this message because shutdown can be forced
+        // even if we return FALSE from WM_QUERYENDSESSION!
+        break;
     case WM_COMMAND:
         cmd_id = LOWORD(wParam);
         switch (cmd_id)
@@ -427,11 +434,9 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
 static void on_wm_destroy(HWND hWnd) {
     struct main_wnd_data* wnd_data;
     wnd_data = (struct main_wnd_data*)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
-    ssr_client_terminate(wnd_data->client_ctx);
     save_config_to_file(wnd_data->hListView, wnd_data->settings_file);
     DestroyWindow(wnd_data->hListView);
     TrayDeleteIcon(hTrayWnd, TRAY_ICON_ID);
-    PostQuitMessage(0);
 
     do {
         HKEY hKey = NULL;
@@ -474,7 +479,10 @@ static void on_wm_destroy(HWND hWnd) {
         }
     }
 
+    ssr_client_terminate(wnd_data->client_ctx);
     free(wnd_data);
+
+    PostQuitMessage(0);
 }
 
 static void add_ssr_url_to_sub_list_view(HWND hWnd, const char* ssr_url) {
