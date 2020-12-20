@@ -27,7 +27,7 @@ struct ssr_client_ctx {
     uint16_t privoxy_listen_port;
 };
 
-struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, int ssr_listen_port, int proxy_listen_port, int delay_quit_ms)
+struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, const char* ssr_listen_host, int ssr_listen_port, int proxy_listen_port, int delay_quit_ms)
 {
     struct ssr_client_ctx* ctx = NULL;
     DWORD threadId = 0;
@@ -58,6 +58,8 @@ struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, int ss
 
     // if we change listen_port to 0, then we will get a dynamic listen port.
     ctx->config->listen_port = (unsigned short)ssr_listen_port;
+    string_safe_assign(&ctx->config->listen_host, ssr_listen_host);
+
     ctx->privoxy_listen_port = (uint16_t)proxy_listen_port;
     ctx->delay_ms = (delay_quit_ms < SSR_DELAY_QUIT_MIN) ? SSR_DELAY_QUIT_MIN : delay_quit_ms;
 
