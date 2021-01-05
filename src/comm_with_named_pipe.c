@@ -26,7 +26,7 @@ int comm_with_named_pipe(const char* pipe_name, uint8_t* data, size_t size, int 
             sprintf(buffer, "CreateFile failed with error %d\n", error_num);
             break;
         }
-        if (WriteFile(handle, data, size, &done_size, NULL) == FALSE) {
+        if (WriteFile(handle, data, (DWORD)size, &done_size, NULL) == FALSE) {
             error_num = GetLastError();
             sprintf(buffer, "WriteFile failed with error %d\n", error_num);
             break;
@@ -35,7 +35,7 @@ int comm_with_named_pipe(const char* pipe_name, uint8_t* data, size_t size, int 
             break;
         }
         // TODO: overlapped read to implement timeout.
-        if (ReadFile(handle, buffer, buffer_size, &done_size, NULL) == FALSE) {
+        if (ReadFile(handle, buffer, (DWORD)buffer_size, &done_size, NULL) == FALSE) {
             error_num = GetLastError();
             sprintf(buffer, "ReadFile failed with error %d\n", error_num);
             break;

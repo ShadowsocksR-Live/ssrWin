@@ -2,6 +2,7 @@
 #include <WindowsX.h>
 #include <tchar.h>
 #include <CommCtrl.h>
+#include <richedit.h>
 #include <shlwapi.h>
 #pragma comment(lib, "Shlwapi.lib")
 #include <assert.h>
@@ -16,12 +17,17 @@
 #include "save_bitmap.h"
 #include "capture_screen.h"
 #include "qrcode_dec.h"
+#include "easysplit.h"
 
 HWND hTrayWnd = NULL;
 
 struct main_wnd_data {
     HWND hMainDlg;
     HWND hListView;
+    HWND hHorzSplitter;
+    HWND hWndLogBox;
+    bool enable_dump_info;
+
     char settings_file[MAX_PATH];
     int cur_selected;
     struct ssr_client_ctx* client_ctx;
@@ -77,6 +83,7 @@ static struct server_config* retrieve_config_from_list_view(HWND hListView, int 
 static void json_config_iter(struct server_config* config, void* p);
 static char* retrieve_string_from_clipboard(HWND hWnd, void* (*allocator)(size_t));
 static void SetFocusToPreviousInstance(const wchar_t* windowClass, const wchar_t* windowCaption);
+static int put_string_to_rich_edit_control(HWND hWnd, const char *pszText, int style);
 
 int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmdLine, int nCmdShow)
 {
@@ -102,6 +109,11 @@ int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmd
     }
 
     CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+
+    LoadLibraryW(L"RICHED20.DLL");
+
+    // register the easy splitter class
+    RegisterEasySplit(hInstance);
 
     RegisterWndClass(hInstance, WndClass);
 
@@ -199,9 +211,15 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         break;
     case WM_SIZE:
         if (wnd_data->hListView) {
-            RECT rc = { 0 };
+            INT pos;
+            RECT rc = { 0 }, rcH = { 0 };
             GetClientRect(hWnd, &rc);
-            SetWindowPos(wnd_data->hListView, NULL, rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, SWP_NOZORDER);
+            pos = (INT) SendMessageW(wnd_data->hHorzSplitter, ESM_GETPOS, 0, 0);
+            MoveWindow(wnd_data->hHorzSplitter, 0, pos - 4, (rc.right - rc.left), 8, 0);
+            GetChildRect(wnd_data->hHorzSplitter, &rcH);
+
+            SetWindowPos(wnd_data->hListView, NULL, rc.left, rc.top, rc.right - rc.left, rcH.top - rc.top, SWP_NOZORDER);
+            SetWindowPos(wnd_data->hWndLogBox, NULL, rc.left, rcH.bottom, rc.right - rc.left, rc.bottom - rcH.bottom, SWP_NOZORDER);
         }
         break;
     case WM_CLOSE:
@@ -228,6 +246,11 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         cmd_id = LOWORD(wParam);
         switch (cmd_id)
         {
+        case 0:
+            if ((HIWORD(wParam) == EN_UPDATE) && ((HWND)lParam == wnd_data->hWndLogBox)) {
+                OutputDebugStringW(L"rich-edit message\n");
+            }
+            break;
         case ID_CMD_OPTIONS:
             DialogBoxParamW(hInstance,
                 MAKEINTRESOURCEW(IDD_OPTIONS),
@@ -288,10 +311,14 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
                 assert(wnd_data->client_ctx == NULL);
                 config = retrieve_config_from_list_view(wnd_data->hListView, wnd_data->cur_selected);
                 wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data->ssr_listen_host, wnd_data->ssr_listen_port, wnd_data->privoxy_listen_port, wnd_data->delay_quit_ms);
+                if (wnd_data->client_ctx) {
+                    wnd_data->enable_dump_info = true;
+                }
             }
             break;
         case ID_CMD_STOP:
             assert(wnd_data->client_ctx != NULL);
+            wnd_data->enable_dump_info = false;
             ssr_client_terminate(wnd_data->client_ctx);
             wnd_data->client_ctx = NULL;
             break;
@@ -339,7 +366,10 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
 
 static void dump_info_callback(int dump_level, const char* info, void* p) {
     struct main_wnd_data* wnd_data = (struct main_wnd_data*)p;
-    // TODO: output the client info.
+    // TODO: enable_dump_info is a ugly practice. we must deal with the multi-thread issue correctly.
+    if (wnd_data->enable_dump_info) {
+        put_string_to_rich_edit_control(wnd_data->hWndLogBox, info, dump_level);
+    }
 }
 
 static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
@@ -429,6 +459,23 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
         assert(config);
         wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data->ssr_listen_host, wnd_data->ssr_listen_port, wnd_data->privoxy_listen_port, wnd_data->delay_quit_ms);
     } while (0);
+
+    {
+        DWORD style = WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_HORZ | ES_LINE | ES_TRACK | ES_DOCK;
+        HWND hHorzSplitter = CreateWindow(EASYSPLIT, NULL, style, 0, 300, 110, 12, hWnd, 0, pcs->hInstance, NULL);
+        SendMessage(hHorzSplitter, ESM_SETCOLORS, (WPARAM)GetSysColor(COLOR_3DSHADOW), (LPARAM)GetSysColor(COLOR_BTNFACE));
+        // set splitter cursors
+        SendMessage(hHorzSplitter, ESM_SETCURSOR, 0, (LPARAM)LoadCursor(NULL, IDC_SIZENS));
+        // set borders
+        SendMessage(hHorzSplitter, ESM_SETBORDER, 30, ESB_TOP);
+        SendMessage(hHorzSplitter, ESM_SETBORDER, 30, ESB_BOTTOM);
+        // set docking to 15 pixels
+        SendMessage(hHorzSplitter, ESM_SETDOCKING, 15, TRUE);
+        wnd_data->hHorzSplitter = hHorzSplitter;
+
+        style = ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY | ES_NOHIDESEL | WS_CHILD | WS_VSCROLL | WS_HSCROLL | WS_VISIBLE;
+        wnd_data->hWndLogBox = CreateWindowExW(0, RICHEDIT_CLASSW, L"", style, 0, 0, 100, 100, hWnd, NULL, pcs->hInstance, NULL);
+    }
 }
 
 static void on_wm_destroy(HWND hWnd) {
@@ -479,6 +526,7 @@ static void on_wm_destroy(HWND hWnd) {
         }
     }
 
+    wnd_data->enable_dump_info = false;
     ssr_client_terminate(wnd_data->client_ctx);
     free(wnd_data);
 
@@ -1389,4 +1437,59 @@ static void SetFocusToPreviousInstance(const wchar_t* windowClass, const wchar_t
             ShowWindow(hWnd, SW_RESTORE);
         }
     }
+}
+
+#define STYLE_NONE      0
+#define STYLE_HIGHLIGHT 1
+#define STYLE_LINK      2
+#define STYLE_HEADER    3
+
+static int put_string_to_rich_edit_control(HWND hWnd, const char* text, int style)
+{
+#define DEFAULT_LOG_FONT_SIZE  8
+#define DEFAULT_LOG_FONT_NAME "MS Sans Serif"
+
+   CHARRANGE range;
+   CHARFORMATA format;
+   int nTextLength;
+
+   assert(hWnd);
+   if (hWnd == NULL) {
+      return 1;
+   }
+
+   /* Go to the end of the text */
+   nTextLength = GetWindowTextLengthA(hWnd);
+   range.cpMin = nTextLength;
+   range.cpMax = nTextLength;
+   SendMessageA(hWnd, EM_EXSETSEL, 0, (LPARAM) &range);
+
+   /* Apply a formatting style */
+   memset(&format, 0, sizeof(format));
+   format.cbSize = sizeof(format);
+   format.dwMask = CFM_BOLD | CFM_UNDERLINE | CFM_STRIKEOUT |
+      CFM_ITALIC | CFM_COLOR | CFM_FACE | CFM_SIZE | CFM_CHARSET;
+   format.bCharSet = DEFAULT_CHARSET;
+   format.yHeight = (DEFAULT_LOG_FONT_SIZE * 1440) / 72;
+   lstrcpynA(format.szFaceName, DEFAULT_LOG_FONT_NAME, sizeof(format.szFaceName));
+   if (style == STYLE_NONE) {
+      /* DO NOTHING */
+      format.dwEffects |= CFE_AUTOCOLOR;
+   }
+   else if (style == STYLE_HEADER) {
+      format.dwEffects |= CFE_AUTOCOLOR | CFE_ITALIC;
+   }
+   else if (style == STYLE_HIGHLIGHT) {
+      format.dwEffects |= CFE_AUTOCOLOR | CFE_BOLD;
+   }
+   else if (style == STYLE_LINK) {
+      format.dwEffects |= CFE_UNDERLINE;
+      format.crTextColor = RGB(0, 0, 255);
+   }
+   SendMessageA(hWnd, EM_SETCHARFORMAT, SCF_SELECTION, (LPARAM) &format);
+
+   /* Append text to the end */
+   SendMessageA(hWnd, EM_REPLACESEL, FALSE, (LPARAM)text);
+
+   return 1;
 }

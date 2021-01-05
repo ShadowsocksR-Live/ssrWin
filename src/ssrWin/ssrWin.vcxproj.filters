@@ -63,6 +63,9 @@
     <ClInclude Include="..\qrcode_dec.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="easysplit.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="process_manager.c">
@@ -111,6 +114,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\qrcode_dec.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="easysplit.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

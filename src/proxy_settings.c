@@ -42,7 +42,7 @@ BOOL enable_system_proxy(const wchar_t* proxy_addr, int port)
     return bReturn;
 }
 
-BOOL disable_system_proxy(const wchar_t* conn_name)
+BOOL disable_system_proxy(void)
 {
     //conn_name: active connection name. 
     INTERNET_PER_CONN_OPTION_LISTW list;

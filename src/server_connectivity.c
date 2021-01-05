@@ -69,7 +69,7 @@ int server_connectivity(const char *host, int port) {
             ((struct sockaddr_in6 *)addr->ai_addr)->sin6_port = htons(port);
         }
 
-        c = connect(cliSock, addr->ai_addr, addr->ai_addrlen);
+        c = connect(cliSock, addr->ai_addr, (int)addr->ai_addrlen);
         if (c != 0) {
             printf("Connect Error: %d\n", errno);
             break;
