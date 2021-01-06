@@ -223,6 +223,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             SetWindowPos(wnd_data->hListView, NULL, rc.left, rc.top, rc.right - rc.left, rcH.top - rc.top, SWP_NOZORDER);
             SetWindowPos(wnd_data->hWndLogBox, NULL, rc.left, rcH.bottom, rc.right - rc.left, rc.bottom - rcH.bottom, SWP_NOZORDER);
         }
+        passToNext = FALSE;
         break;
     case WM_CLOSE:
         if (wParam == ID_CMD_EXIT) {
@@ -500,7 +501,7 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
         wnd_data->hHorzSplitter = hHorzSplitter;
 
         style = ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY | ES_NOHIDESEL | WS_CHILD | WS_VSCROLL | WS_HSCROLL | WS_VISIBLE;
-        wnd_data->hWndLogBox = CreateWindowExW(0, RICHEDIT_CLASSW, L"", style, 0, 0, 100, 100, hWnd, NULL, pcs->hInstance, NULL);
+        wnd_data->hWndLogBox = CreateWindowExW(WS_EX_CLIENTEDGE, RICHEDIT_CLASSW, L"", style, 0, 0, 100, 100, hWnd, NULL, pcs->hInstance, NULL);
     }
 }
 
@@ -726,7 +727,7 @@ static HWND create_list_view(HWND hwndParent, HINSTANCE hinstance)
     GetClientRect(hwndParent, &rcClient);
 
     // Create the list-view window in report view with label editing enabled.
-    hWndListView = CreateWindowW(WC_LISTVIEWW, L"",
+    hWndListView = CreateWindowExW(WS_EX_CLIENTEDGE, WC_LISTVIEWW, L"",
         WS_CHILD | WS_VISIBLE | LVS_REPORT,
         0, 0, rcClient.right - rcClient.left, rcClient.bottom - rcClient.top,
         hwndParent,
