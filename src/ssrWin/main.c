@@ -26,7 +26,7 @@ struct main_wnd_data {
     HWND hListView;
     HWND hHorzSplitter;
     HWND hWndLogBox;
-    bool enable_dump_info;
+    HANDLE mutex_dump_info;
 
     char settings_file[MAX_PATH];
     int cur_selected;
@@ -44,6 +44,7 @@ struct main_wnd_data {
 #define TRAY_ICON_ID 1
 #define LIST_VIEW_ID 55
 #define MENU_ID_NODE_BEGINNING 60000
+#define WM_DUMP_INFO (WM_USER + 4)
 
 #define APP_NAME_KEY "ssrWin"
 #define APP_REG_KEY L"Software\\ssrwin"
@@ -52,6 +53,7 @@ struct main_wnd_data {
 ATOM RegisterWndClass(HINSTANCE hInstance, const wchar_t* szWindowClass);
 HWND InitInstance(HINSTANCE hInstance, const wchar_t* wndClass, const wchar_t* title, int nCmdShow);
 LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+static void on_wm_dump_info(HWND hWnd, WPARAM wParam, LPARAM lParam);
 static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs);
 static void on_wm_destroy(HWND hWnd);
 static void on_cmd_clipboard_import_url(HWND hWnd);
@@ -242,6 +244,10 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         // TODO: Always handle this message because shutdown can be forced
         // even if we return FALSE from WM_QUERYENDSESSION!
         break;
+    case WM_DUMP_INFO:
+        on_wm_dump_info(hWnd, wParam, lParam);
+        passToNext = FALSE;
+        break;
     case WM_COMMAND:
         cmd_id = LOWORD(wParam);
         switch (cmd_id)
@@ -311,14 +317,10 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
                 assert(wnd_data->client_ctx == NULL);
                 config = retrieve_config_from_list_view(wnd_data->hListView, wnd_data->cur_selected);
                 wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data->ssr_listen_host, wnd_data->ssr_listen_port, wnd_data->privoxy_listen_port, wnd_data->delay_quit_ms);
-                if (wnd_data->client_ctx) {
-                    wnd_data->enable_dump_info = true;
-                }
             }
             break;
         case ID_CMD_STOP:
             assert(wnd_data->client_ctx != NULL);
-            wnd_data->enable_dump_info = false;
             ssr_client_terminate(wnd_data->client_ctx);
             wnd_data->client_ctx = NULL;
             break;
@@ -364,12 +366,33 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
     return 0;
 }
 
+struct dump_info {
+    int dump_level;
+    char* info;
+};
+
 static void dump_info_callback(int dump_level, const char* info, void* p) {
     struct main_wnd_data* wnd_data = (struct main_wnd_data*)p;
-    // TODO: enable_dump_info is a ugly practice. we must deal with the multi-thread issue correctly.
-    if (wnd_data->enable_dump_info) {
-        put_string_to_rich_edit_control(wnd_data->hWndLogBox, info, dump_level);
+    WaitForSingleObject(wnd_data->mutex_dump_info, INFINITE);
+    {
+        struct dump_info* data = (struct dump_info*) calloc(1, sizeof(*data));
+        data->dump_level = dump_level;
+        data->info = strdup(info);
+        PostMessage(wnd_data->hMainDlg, WM_DUMP_INFO, 0, (LPARAM)data);
     }
+    ReleaseMutex(wnd_data->mutex_dump_info);
+}
+
+static void on_wm_dump_info(HWND hWnd, WPARAM wParam, LPARAM lParam) {
+    struct main_wnd_data* wnd_data = (struct main_wnd_data*)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
+    WaitForSingleObject(wnd_data->mutex_dump_info, INFINITE);
+    {
+        struct dump_info* data = (struct dump_info*)lParam;
+        put_string_to_rich_edit_control(wnd_data->hWndLogBox, data->info, data->dump_level);
+        free(data->info);
+        free(data);
+    }
+    ReleaseMutex(wnd_data->mutex_dump_info);
 }
 
 static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
@@ -378,6 +401,7 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
     wnd_data = (struct main_wnd_data*)calloc(1, sizeof(*wnd_data));
     SetWindowLongPtrW(hWnd, GWLP_USERDATA, (LONG_PTR)wnd_data);
     wnd_data->cur_selected = -1;
+    wnd_data->mutex_dump_info = CreateMutexW(NULL, FALSE, L"mutex_dump_info");
 
     wnd_data->auto_connect = FALSE;
     wnd_data->auto_run = FALSE;
@@ -443,6 +467,8 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
             free(tmp);
         }
     }
+
+    set_app_name(APP_NAME_KEY);
     set_dump_info_callback(dump_info_callback, wnd_data);
 
     do {
@@ -458,9 +484,6 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
         config = retrieve_config_from_list_view(wnd_data->hListView, index);
         assert(config);
         wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data->ssr_listen_host, wnd_data->ssr_listen_port, wnd_data->privoxy_listen_port, wnd_data->delay_quit_ms);
-        if (wnd_data->client_ctx) {
-            wnd_data->enable_dump_info = true;
-        }
     } while (0);
 
     {
@@ -529,8 +552,8 @@ static void on_wm_destroy(HWND hWnd) {
         }
     }
 
-    wnd_data->enable_dump_info = false;
     ssr_client_terminate(wnd_data->client_ctx);
+    CloseHandle(wnd_data->mutex_dump_info);
     free(wnd_data);
 
     PostQuitMessage(0);
