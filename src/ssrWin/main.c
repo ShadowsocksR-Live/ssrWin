@@ -458,6 +458,9 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
         config = retrieve_config_from_list_view(wnd_data->hListView, index);
         assert(config);
         wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data->ssr_listen_host, wnd_data->ssr_listen_port, wnd_data->privoxy_listen_port, wnd_data->delay_quit_ms);
+        if (wnd_data->client_ctx) {
+            wnd_data->enable_dump_info = true;
+        }
     } while (0);
 
     {
