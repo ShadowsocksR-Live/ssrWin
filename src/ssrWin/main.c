@@ -70,8 +70,10 @@ BOOL on_context_menu(HWND hWnd, HWND targetWnd, LPARAM lParam);
 BOOL on_delete_item(HWND hWnd);
 BOOL on_cmd_server_export_to_json(HWND hWnd);
 BOOL on_cmd_qr_code(HWND hWnd);
-BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, int ctlID, LPNMHDR pnmHdr);
+BOOL handle_wm_notify_from_list_view(HWND hWnd, int ctlID, LPNMHDR pnmHdr, LRESULT *lResult);
 static void view_server_details(HWND hWnd, HWND hWndList);
+static BOOL on_list_view_notification_item_changing(HWND hWnd, LPNMLISTVIEW pnmlv, LRESULT *lResult);
+static void set_current_selected_item(HWND hWnd, int index, BOOL refresh_gui);
 static void on_list_view_notification_get_disp_info(NMLVDISPINFOW* plvdi, const struct server_config* config);
 static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, LPARAM lParam);
 static INT_PTR CALLBACK OptionsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, LPARAM lParam);
@@ -198,7 +200,8 @@ struct json_iter_data {
 };
 
 LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
-    int count;
+    LRESULT lResult = 0;
+    int count, cur_selected;
     struct server_config* config;
     HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtrW(hWnd, GWLP_HINSTANCE);
     struct main_wnd_data* wnd_data = NULL;
@@ -306,7 +309,8 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             on_delete_item(hWnd);
             break;
         case ID_CMD_RUN:
-            wnd_data->cur_selected = adjust_current_selected_item(wnd_data->cur_selected, ListView_GetItemCount(wnd_data->hListView));
+            cur_selected = adjust_current_selected_item(wnd_data->cur_selected, ListView_GetItemCount(wnd_data->hListView));
+            set_current_selected_item(hWnd, cur_selected, TRUE);
             if (wnd_data->cur_selected < 0) {
                 wchar_t Info[MAX_PATH] = { 0 };
                 wchar_t AppName[MAX_PATH] = { 0 };
@@ -330,7 +334,8 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             if ((MENU_ID_NODE_BEGINNING <= cmd_id) &&
                 (cmd_id < (DWORD)(MENU_ID_NODE_BEGINNING + count)))
             {
-                wnd_data->cur_selected = cmd_id - MENU_ID_NODE_BEGINNING;
+                int cur_selected = cmd_id - MENU_ID_NODE_BEGINNING;
+                set_current_selected_item(wnd_data->hMainDlg, cur_selected, TRUE);
                 break;
             }
             assert(0);
@@ -356,7 +361,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         }
         break;
     case WM_NOTIFY:
-        passToNext = (HANDLE_WM_NOTIFY(hWnd, wParam, lParam, handle_WM_NOTIFY_from_list_view) == FALSE);
+        passToNext = (handle_wm_notify_from_list_view(hWnd, (int)wParam, (LPNMHDR)lParam, &lResult) == FALSE);
         break;
     default:
         break;
@@ -364,7 +369,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
     if (passToNext) {
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
-    return 0;
+    return lResult;
 }
 
 struct dump_info {
@@ -398,6 +403,7 @@ static void on_wm_dump_info(HWND hWnd, WPARAM wParam, LPARAM lParam) {
 
 static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
 {
+    int cur_selected = -1;
     struct main_wnd_data* wnd_data = NULL;
     wnd_data = (struct main_wnd_data*)calloc(1, sizeof(*wnd_data));
     SetWindowLongPtrW(hWnd, GWLP_USERDATA, (LONG_PTR)wnd_data);
@@ -433,8 +439,8 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
         LSTATUS lRet = RegOpenKeyExW(HKEY_CURRENT_USER, APP_REG_KEY, 0, KEY_READ, &hKey);
         if (lRet == ERROR_SUCCESS) {
             dwtype = REG_BINARY;
-            sizeBuff = sizeof(wnd_data->cur_selected);
-            lRet = RegQueryValueExW(hKey, L"cur_selected", 0, &dwtype, (BYTE*)&wnd_data->cur_selected, &sizeBuff);
+            sizeBuff = sizeof(cur_selected);
+            lRet = RegQueryValueExW(hKey, L"cur_selected", 0, &dwtype, (BYTE*)&cur_selected, &sizeBuff);
 
             sizeBuff = sizeof(wnd_data->auto_connect);
             lRet = RegQueryValueExW(hKey, L"auto_connect", 0, &dwtype, (BYTE*)&wnd_data->auto_connect, &sizeBuff);
@@ -474,11 +480,12 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
 
     do {
         static struct server_config* config;
-        int index = wnd_data->cur_selected;
-        if (wnd_data->auto_connect == FALSE) {
+        int index = cur_selected;
+        if (index < 0 || index >= ListView_GetItemCount(wnd_data->hListView)) {
             break;
         }
-        if (index < 0 || index >= ListView_GetItemCount(wnd_data->hListView)) {
+        set_current_selected_item(hWnd, index, TRUE);
+        if (wnd_data->auto_connect == FALSE) {
             break;
         }
         assert(wnd_data->client_ctx == NULL);
@@ -626,9 +633,10 @@ static void modify_popup_menu_items(struct main_wnd_data* wnd_data, HMENU hMenu)
         utf8_to_wchar_string(name, tmp, ARRAYSIZE(tmp));
         AppendMenuW(hMenu, MF_STRING, (UINT)(MENU_ID_NODE_BEGINNING + index), tmp);
     }
-
-    wnd_data->cur_selected = adjust_current_selected_item(wnd_data->cur_selected, node_count);
-
+    {
+        int cur_selected = adjust_current_selected_item(wnd_data->cur_selected, node_count);
+        set_current_selected_item(wnd_data->hMainDlg, cur_selected, TRUE);
+    }
     if (wnd_data->cur_selected >= 0) {
         CheckMenuRadioItem(hMenu,
             MENU_ID_NODE_BEGINNING,
@@ -735,7 +743,7 @@ static HWND create_list_view(HWND hwndParent, HINSTANCE hinstance)
         hinstance,
         NULL);
 
-    ListView_SetExtendedListViewStyle(hWndListView, LVS_EX_FULLROWSELECT);
+    ListView_SetExtendedListViewStyle(hWndListView, LVS_EX_FULLROWSELECT | LVS_EX_CHECKBOXES);
 
     return hWndListView;
 }
@@ -1007,7 +1015,7 @@ BOOL on_delete_item(HWND hWnd) {
     return TRUE;
 }
 
-BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, int ctlID, LPNMHDR pnmHdr)
+BOOL handle_wm_notify_from_list_view(HWND hWnd, int ctlID, LPNMHDR pnmHdr, LRESULT *lResult)
 {
     BOOL msgHandled = FALSE;
     NMLVDISPINFOW* plvdi;
@@ -1022,6 +1030,10 @@ BOOL handle_WM_NOTIFY_from_list_view(HWND hWnd, int ctlID, LPNMHDR pnmHdr)
     hWndList = pnmHdr->hwndFrom;
     switch (pnmHdr->code)
     {
+    case LVN_ITEMCHANGING:
+        pnmlv = (LPNMLISTVIEW)pnmHdr;
+        msgHandled = on_list_view_notification_item_changing(hWnd, pnmlv, lResult);
+        break;
     case LVN_GETDISPINFO:
         plvdi = (NMLVDISPINFOW*)pnmHdr;
         config = (struct server_config*)plvdi->item.lParam;
@@ -1074,6 +1086,71 @@ static void view_server_details(HWND hWnd, HWND hWndList) {
         ListView_RedrawItems(hWndList, nIndex, nIndex);
     }
     SetFocus(hWndList);
+}
+
+#define ListView_GetCheckState_Fixed(hwndLV, i) \
+    (BOOL)(((((UINT)(SNDMSG((hwndLV), LVM_GETITEMSTATE, (WPARAM)(i), LVIS_STATEIMAGEMASK))) >> 12) & 0x02) == 0x02)
+#define LVIS_CHECKED INDEXTOSTATEIMAGEMASK(2)
+#define LVIS_UNCHECKED INDEXTOSTATEIMAGEMASK(1)
+
+static BOOL on_list_view_notification_item_changing(HWND hWnd, LPNMLISTVIEW pnmlv, LRESULT *lResult) {
+    BOOL msgHandled = TRUE, is_cur_selected;
+    // https://forums.codeguru.com/showthread.php?256128-CListCtrl-LVN_ITEMCHANGING
+    // https://stackoverflow.com/questions/16274522/clistctrl-with-lvs-ex-checkboxes-style
+
+    struct main_wnd_data* wnd_data = (struct main_wnd_data*)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
+    HWND hListView = wnd_data->hListView;
+
+    assert(pnmlv->hdr.hwndFrom == hListView);
+
+    // by default, allow change
+    assert(lResult);
+    *lResult = 0;
+
+    is_cur_selected = (pnmlv->iItem == wnd_data->cur_selected);
+
+    // item was checked
+    if ((pnmlv->uNewState & LVIS_CHECKED) == LVIS_CHECKED) {
+        if (is_cur_selected) {
+            int index = 0, internal_selected = -1;
+            for (index = 0; index < ListView_GetItemCount(hListView); ++index) {
+                BOOL checked = ListView_GetCheckState_Fixed(hListView, index);
+                if (checked == TRUE) {
+                    internal_selected = index;
+                    break;
+                }
+            }
+            if (internal_selected >= 0) {
+                *lResult = 1; // disallow change
+            }
+        } else {
+            int tmp = wnd_data->cur_selected;
+            set_current_selected_item(hWnd, pnmlv->iItem, FALSE);
+            ListView_SetCheckState(hListView, tmp, FALSE);
+        }
+    }
+    // item was unchecked
+    else if ((pnmlv->uNewState & LVIS_UNCHECKED) == LVIS_UNCHECKED) {
+        if (is_cur_selected) {
+            *lResult = 1; // disallow change
+        }
+    }
+    else {
+        msgHandled = FALSE;
+    }
+    return msgHandled;
+}
+
+static void set_current_selected_item(HWND hWnd, int index, BOOL refresh_gui) {
+    struct main_wnd_data* wnd_data = (struct main_wnd_data*)GetWindowLongPtrW(hWnd, GWLP_USERDATA);
+    if (wnd_data->cur_selected == index) {
+        return;
+    }
+    if (refresh_gui) {
+        ListView_SetCheckState(wnd_data->hListView, index, TRUE);
+    } else {
+        wnd_data->cur_selected = index;
+    }
 }
 
 static void on_list_view_notification_get_disp_info(NMLVDISPINFOW* plvdi, const struct server_config* config)
