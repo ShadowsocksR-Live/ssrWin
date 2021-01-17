@@ -17,6 +17,7 @@ struct server_config;
 
 struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, const char* ssr_listen_host, int ssr_listen_port, int proxy_listen_port, int delay_quit_ms);
 void ssr_client_terminate(struct ssr_client_ctx* ctx);
+const char* ssr_client_error_string(void);
 
 #ifdef __cplusplus
 } /* extern "C" */

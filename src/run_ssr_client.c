@@ -1,5 +1,7 @@
 #include <WinSock2.h>
 #include <Windows.h>
+#include <shlwapi.h>
+#pragma comment(lib, "Shlwapi.lib")
 #include <assert.h>
 #include <stdio.h>
 #include <privoxyexports.h>
@@ -27,15 +29,25 @@ struct ssr_client_ctx {
     uint16_t privoxy_listen_port;
 };
 
+static char error_info[MAX_PATH * 4] = { 0 };
+
+const char* ssr_client_error_string(void) {
+    return error_info;
+}
+
 struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, const char* ssr_listen_host, int ssr_listen_port, int proxy_listen_port, int delay_quit_ms)
 {
     struct ssr_client_ctx* ctx = NULL;
     DWORD threadId = 0;
+    int error_code = 0;
+
+    error_info[0] = '\0';
 
     if (ssr_listen_port != 0) {
         if (tcp_port_is_occupied("0.0.0.0", ssr_listen_port) ||
             tcp_port_is_occupied("127.0.0.1", ssr_listen_port))
         {
+            wnsprintfA(error_info, ARRAYSIZE(error_info), "tcp_port_is_occupied for ssr_listen_port: %d\n", ssr_listen_port);
             return NULL;
         }
     }
@@ -44,11 +56,13 @@ struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, const 
         if (tcp_port_is_occupied("0.0.0.0", proxy_listen_port) ||
             tcp_port_is_occupied("127.0.0.1", proxy_listen_port))
         {
+            wnsprintfA(error_info, ARRAYSIZE(error_info), "tcp_port_is_occupied for proxy_listen_port: %d\n", proxy_listen_port);
             return NULL;
         }
     } else {
         // TODO: Privoxy not allow listen port is ZERO recently.
         DebugBreak();
+        wnsprintfA(error_info, ARRAYSIZE(error_info), "tcp_port_is_occupied for proxy_listen_port: %d\n", proxy_listen_port);
         return NULL;
     }
 
@@ -68,7 +82,8 @@ struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, const 
     WaitForSingleObject(ctx->hOrderKeeper, INFINITE);
     CloseHandle(ctx->hOrderKeeper);
 
-    if (ssr_get_client_error_code(ctx->state) == 0) {
+    error_code = ssr_get_client_error_code(ctx->state);
+    if (error_code == 0) {
         ctx->hPrivoxySvr = CreateThread(NULL, 0, PrivoxyThread, ctx, 0, &threadId);
         enable_system_proxy(PRIVOXY_LISTEN_ADDR, ctx->privoxy_listen_port);
     } else {
@@ -77,6 +92,7 @@ struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, const 
         config_release(ctx->config);
         free(ctx);
         ctx = NULL;
+        wnsprintfA(error_info, ARRAYSIZE(error_info), "SsrClientThread for error: %d\n", error_code);
     }
 
     return ctx;

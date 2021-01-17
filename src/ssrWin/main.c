@@ -322,6 +322,10 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
                 assert(wnd_data->client_ctx == NULL);
                 config = retrieve_config_from_list_view(wnd_data->hListView, wnd_data->cur_selected);
                 wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data->ssr_listen_host, wnd_data->ssr_listen_port, wnd_data->privoxy_listen_port, wnd_data->delay_quit_ms);
+                if (wnd_data->client_ctx == NULL) {
+                    const char*info = ssr_client_error_string();
+                    put_string_to_rich_edit_control(wnd_data->hWndLogBox, info, 2);
+                }
             }
             break;
         case ID_CMD_STOP:
@@ -475,6 +479,23 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
         }
     }
 
+    {
+        DWORD style = WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_HORZ | ES_LINE | ES_TRACK | ES_DOCK;
+        HWND hHorzSplitter = CreateWindow(EASYSPLIT, NULL, style, 0, 300, 110, 12, hWnd, 0, pcs->hInstance, NULL);
+        SendMessage(hHorzSplitter, ESM_SETCOLORS, (WPARAM)GetSysColor(COLOR_3DSHADOW), (LPARAM)GetSysColor(COLOR_BTNFACE));
+        // set splitter cursors
+        SendMessage(hHorzSplitter, ESM_SETCURSOR, 0, (LPARAM)LoadCursor(NULL, IDC_SIZENS));
+        // set borders
+        SendMessage(hHorzSplitter, ESM_SETBORDER, 30, ESB_TOP);
+        SendMessage(hHorzSplitter, ESM_SETBORDER, 30, ESB_BOTTOM);
+        // set docking to 15 pixels
+        SendMessage(hHorzSplitter, ESM_SETDOCKING, 15, TRUE);
+        wnd_data->hHorzSplitter = hHorzSplitter;
+
+        style = ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY | ES_NOHIDESEL | WS_CHILD | WS_VSCROLL | WS_HSCROLL | WS_VISIBLE;
+        wnd_data->hWndLogBox = CreateWindowExW(WS_EX_CLIENTEDGE, RICHEDIT_CLASSW, L"", style, 0, 0, 100, 100, hWnd, NULL, pcs->hInstance, NULL);
+    }
+
     set_app_name(APP_NAME_KEY);
     set_dump_info_callback(dump_info_callback, wnd_data);
 
@@ -492,24 +513,11 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
         config = retrieve_config_from_list_view(wnd_data->hListView, index);
         assert(config);
         wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data->ssr_listen_host, wnd_data->ssr_listen_port, wnd_data->privoxy_listen_port, wnd_data->delay_quit_ms);
+        if (wnd_data->client_ctx == NULL) {
+            const char*info = ssr_client_error_string();
+            put_string_to_rich_edit_control(wnd_data->hWndLogBox, info, 2);
+        }
     } while (0);
-
-    {
-        DWORD style = WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_HORZ | ES_LINE | ES_TRACK | ES_DOCK;
-        HWND hHorzSplitter = CreateWindow(EASYSPLIT, NULL, style, 0, 300, 110, 12, hWnd, 0, pcs->hInstance, NULL);
-        SendMessage(hHorzSplitter, ESM_SETCOLORS, (WPARAM)GetSysColor(COLOR_3DSHADOW), (LPARAM)GetSysColor(COLOR_BTNFACE));
-        // set splitter cursors
-        SendMessage(hHorzSplitter, ESM_SETCURSOR, 0, (LPARAM)LoadCursor(NULL, IDC_SIZENS));
-        // set borders
-        SendMessage(hHorzSplitter, ESM_SETBORDER, 30, ESB_TOP);
-        SendMessage(hHorzSplitter, ESM_SETBORDER, 30, ESB_BOTTOM);
-        // set docking to 15 pixels
-        SendMessage(hHorzSplitter, ESM_SETDOCKING, 15, TRUE);
-        wnd_data->hHorzSplitter = hHorzSplitter;
-
-        style = ES_AUTOVSCROLL | ES_MULTILINE | ES_READONLY | ES_NOHIDESEL | WS_CHILD | WS_VSCROLL | WS_HSCROLL | WS_VISIBLE;
-        wnd_data->hWndLogBox = CreateWindowExW(WS_EX_CLIENTEDGE, RICHEDIT_CLASSW, L"", style, 0, 0, 100, 100, hWnd, NULL, pcs->hInstance, NULL);
-    }
 }
 
 static void on_wm_destroy(HWND hWnd) {
