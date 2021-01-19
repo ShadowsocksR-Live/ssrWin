@@ -744,7 +744,7 @@ static HWND create_list_view(HWND hwndParent, HINSTANCE hinstance)
 
     // Create the list-view window in report view with label editing enabled.
     hWndListView = CreateWindowExW(WS_EX_CLIENTEDGE, WC_LISTVIEWW, L"",
-        WS_CHILD | WS_VISIBLE | LVS_REPORT,
+        WS_CHILD | WS_VISIBLE | LVS_REPORT | LVS_SINGLESEL,
         0, 0, rcClient.right - rcClient.left, rcClient.bottom - rcClient.top,
         hwndParent,
         (HMENU)LIST_VIEW_ID,
