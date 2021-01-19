@@ -629,7 +629,7 @@ static void modify_popup_menu_items(struct main_wnd_data* wnd_data, HMENU hMenu)
         DeleteMenu(hMenu, item_id, MF_BYCOMMAND);
     }
     for (index = 0; index < node_count; ++index) {
-        wchar_t tmp[MAX_PATH] = { 0 };
+        wchar_t *tmp;
         struct server_config* config;
         char* name;
         config = retrieve_config_from_list_view(wnd_data->hListView, index);
@@ -638,8 +638,9 @@ static void modify_popup_menu_items(struct main_wnd_data* wnd_data, HMENU hMenu)
             break;
         }
         name = lstrlenA(config->remarks) ? config->remarks : config->remote_host;
-        utf8_to_wchar_string(name, tmp, ARRAYSIZE(tmp));
-        AppendMenuW(hMenu, MF_STRING, (UINT)(MENU_ID_NODE_BEGINNING + index), tmp);
+        tmp = utf8_to_wchar_string(name, &malloc);
+        AppendMenuW(hMenu, MF_STRING, (UINT)(MENU_ID_NODE_BEGINNING + index), tmp?tmp:L"");
+        free(tmp);
     }
     {
         int cur_selected = adjust_current_selected_item(wnd_data->cur_selected, node_count);
@@ -1165,16 +1166,18 @@ static void on_list_view_notification_get_disp_info(NMLVDISPINFOW* plvdi, const 
 {
     LPWSTR pszText = plvdi->item.pszText;
     int cchTextMax = plvdi->item.cchTextMax;
-    wchar_t tmp[MAX_PATH] = { 0 };
+    wchar_t *tmp = NULL;
     switch (plvdi->item.iSubItem)
     {
     case 0:
         // L"Remarks"
-        lstrcpynW(pszText, utf8_to_wchar_string(config->remarks, tmp, ARRAYSIZE(tmp)), cchTextMax);
+        tmp = utf8_to_wchar_string(config->remarks, &malloc);
+        lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
         break;
     case 1:
         // L"Server Address"
-        lstrcpynW(pszText, utf8_to_wchar_string(config->remote_host, tmp, ARRAYSIZE(tmp)), cchTextMax);
+        tmp = utf8_to_wchar_string(config->remote_host, &malloc);
+        lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
         break;
     case 2:
         // L"Server Port"
@@ -1182,27 +1185,33 @@ static void on_list_view_notification_get_disp_info(NMLVDISPINFOW* plvdi, const 
         break;
     case 3:
         // L"Method"
-        lstrcpynW(pszText, utf8_to_wchar_string(config->method, tmp, ARRAYSIZE(tmp)), cchTextMax);
+        tmp = utf8_to_wchar_string(config->method, &malloc);
+        lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
         break;
     case 4:
         // L"Password"
-        lstrcpynW(pszText, utf8_to_wchar_string(config->password, tmp, ARRAYSIZE(tmp)), cchTextMax);
+        tmp = utf8_to_wchar_string(config->password, &malloc);
+        lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
         break;
     case 5:
         // L"Protocol"
-        lstrcpynW(pszText, utf8_to_wchar_string(config->protocol, tmp, ARRAYSIZE(tmp)), cchTextMax);
+        tmp = utf8_to_wchar_string(config->protocol, &malloc);
+        lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
         break;
     case 6:
         // L"Protocol Param"
-        lstrcpynW(pszText, utf8_to_wchar_string(config->protocol_param, tmp, ARRAYSIZE(tmp)), cchTextMax);
+        tmp = utf8_to_wchar_string(config->protocol_param, &malloc);
+        lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
         break;
     case 7:
         // L"Obfs"
-        lstrcpynW(pszText, utf8_to_wchar_string(config->obfs, tmp, ARRAYSIZE(tmp)), cchTextMax);
+        tmp = utf8_to_wchar_string(config->obfs, &malloc);
+        lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
         break;
     case 8:
         // L"Obfs Param"
-        lstrcpynW(pszText, utf8_to_wchar_string(config->obfs_param, tmp, ARRAYSIZE(tmp)), cchTextMax);
+        tmp = utf8_to_wchar_string(config->obfs_param, &malloc);
+        lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
         break;
     case 9:
         // L"SSRoT Enable"
@@ -1210,15 +1219,18 @@ static void on_list_view_notification_get_disp_info(NMLVDISPINFOW* plvdi, const 
         break;
     case 10:
         // L"SSRoT Domain"
-        lstrcpynW(pszText, utf8_to_wchar_string(config->over_tls_server_domain, tmp, ARRAYSIZE(tmp)), cchTextMax);
+        tmp = utf8_to_wchar_string(config->over_tls_server_domain, &malloc);
+        lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
         break;
     case 11:
         // L"SSRoT Path"
-        lstrcpynW(pszText, utf8_to_wchar_string(config->over_tls_path, tmp, ARRAYSIZE(tmp)), cchTextMax);
+        tmp = utf8_to_wchar_string(config->over_tls_path, &malloc);
+        lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
         break;
     default:
         break;
     }
+    free(tmp);
 }
 
 static INT_PTR CALLBACK ConfigDetailsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, LPARAM lParam)
@@ -1309,7 +1321,7 @@ static INT_PTR CALLBACK OptionsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, 
 
 static void config_dlg_init(HWND hDlg)
 {
-    wchar_t tmp[MAX_PATH] = { 0 };
+    wchar_t *tmp = NULL;
 
     HWND hMethod = GetDlgItem(hDlg, IDC_CMB_ENCRYPTION);
     HWND hProtocol = GetDlgItem(hDlg, IDC_CMB_PROTOCOL);
@@ -1323,24 +1335,27 @@ static void config_dlg_init(HWND hDlg)
     for (iterMethod = ss_cipher_none; iterMethod < ss_cipher_max; ++iterMethod) {
         const char* name = ss_cipher_name_of_type(iterMethod);
         if (name) {
-            utf8_to_wchar_string(name, tmp, ARRAYSIZE(tmp));
+            tmp = utf8_to_wchar_string(name, &malloc);
             ComboBox_AddString(hMethod, tmp);
+            free(tmp);
         }
     }
 
     for (iterProtocol = ssr_protocol_origin; iterProtocol < ssr_protocol_max; ++iterProtocol) {
         const char* name = ssr_protocol_name_of_type(iterProtocol);
         if (name) {
-            utf8_to_wchar_string(name, tmp, ARRAYSIZE(tmp));
+            tmp = utf8_to_wchar_string(name, &malloc);
             ComboBox_AddString(hProtocol, tmp);
+            free(tmp);
         }
     }
 
     for (iterObfs = ssr_obfs_plain; iterObfs < ssr_obfs_max; ++iterObfs) {
         const char* name = ssr_obfs_name_of_type(iterObfs);
         if (name) {
-            utf8_to_wchar_string(name, tmp, ARRAYSIZE(tmp));
+            tmp = utf8_to_wchar_string(name, &malloc);
             ComboBox_AddString(hObfs, tmp);
+            free(tmp);
         }
     }
 
@@ -1349,48 +1364,60 @@ static void config_dlg_init(HWND hDlg)
 
 static void load_config_to_dlg(HWND hDlg, const struct server_config* config)
 {
-    wchar_t tmp[MAX_PATH] = { 0 };
+    wchar_t* tmp = NULL;
+    wchar_t tmp2[MAX_PATH] = { 0 };
 
-    utf8_to_wchar_string(config->remarks, tmp, ARRAYSIZE(tmp));
-    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_REMARKS), tmp);
+    tmp = utf8_to_wchar_string(config->remarks, &malloc);
+    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_REMARKS), tmp?tmp:L"");
+    free(tmp);
 
-    utf8_to_wchar_string(config->remote_host, tmp, ARRAYSIZE(tmp));
-    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_SERVER_ADDR), tmp);
+    tmp = utf8_to_wchar_string(config->remote_host, &malloc);
+    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_SERVER_ADDR), tmp?tmp:L"");
+    free(tmp);
 
-    wsprintfW(tmp, L"%d", (int)config->remote_port);
-    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_SERVER_PORT), tmp);
+    wsprintfW(tmp2, L"%d", (int)config->remote_port);
+    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_SERVER_PORT), tmp2);
 
-    utf8_to_wchar_string(config->password, tmp, ARRAYSIZE(tmp));
-    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_PASSWORD), tmp);
+    tmp = utf8_to_wchar_string(config->password, &malloc);
+    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_PASSWORD), tmp?tmp:L"");
+    free(tmp);
 
-    utf8_to_wchar_string(config->method, tmp, ARRAYSIZE(tmp));
-    combo_box_set_cur_sel(GetDlgItem(hDlg, IDC_CMB_ENCRYPTION), tmp);
+    tmp = utf8_to_wchar_string(config->method, &malloc);
+    combo_box_set_cur_sel(GetDlgItem(hDlg, IDC_CMB_ENCRYPTION), tmp?tmp:L"");
+    free(tmp);
 
-    utf8_to_wchar_string(config->protocol, tmp, ARRAYSIZE(tmp));
-    combo_box_set_cur_sel(GetDlgItem(hDlg, IDC_CMB_PROTOCOL), tmp);
+    tmp = utf8_to_wchar_string(config->protocol, &malloc);
+    combo_box_set_cur_sel(GetDlgItem(hDlg, IDC_CMB_PROTOCOL), tmp?tmp:L"");
+    free(tmp);
 
-    utf8_to_wchar_string(config->protocol_param, tmp, ARRAYSIZE(tmp));
-    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_PROTOCOL_PARAM), tmp);
+    tmp = utf8_to_wchar_string(config->protocol_param, &malloc);
+    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_PROTOCOL_PARAM), tmp?tmp:L"");
+    free(tmp);
 
-    utf8_to_wchar_string(config->obfs, tmp, ARRAYSIZE(tmp));
-    combo_box_set_cur_sel(GetDlgItem(hDlg, IDC_CMB_OBFS), tmp);
+    tmp = utf8_to_wchar_string(config->obfs, &malloc);
+    combo_box_set_cur_sel(GetDlgItem(hDlg, IDC_CMB_OBFS), tmp?tmp:L"");
+    free(tmp);
 
-    utf8_to_wchar_string(config->obfs_param, tmp, ARRAYSIZE(tmp));
-    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_OBFS_PARAM), tmp);
+    tmp = utf8_to_wchar_string(config->obfs_param, &malloc);
+    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_OBFS_PARAM), tmp?tmp:L"");
+    free(tmp);
 
     Button_SetCheck(GetDlgItem(hDlg, IDC_STC_OT_ENABLE), config->over_tls_enable ? TRUE : FALSE);
 
-    utf8_to_wchar_string(config->over_tls_server_domain, tmp, ARRAYSIZE(tmp));
-    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_OT_DOMAIN), tmp);
+    tmp = utf8_to_wchar_string(config->over_tls_server_domain, &malloc);
+    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_OT_DOMAIN), tmp?tmp:L"");
+    free(tmp);
 
-    utf8_to_wchar_string(config->over_tls_path, tmp, ARRAYSIZE(tmp));
-    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_OT_PATH), tmp);
+    tmp = utf8_to_wchar_string(config->over_tls_path, &malloc);
+    SetWindowTextW(GetDlgItem(hDlg, IDC_EDT_OT_PATH), tmp?tmp:L"");
+    free(tmp);
 }
 
 static void save_dlg_to_config(HWND hDlg, struct server_config* config)
 {
     wchar_t w_tmp[MAX_PATH] = { 0 };
-    char a_tmp[MAX_PATH] = { 0 };
+    char* a_tmp = NULL;
+    char a_tmp2[MAX_PATH] = { 0 };
 
     HWND hRemarks = GetDlgItem(hDlg, IDC_EDT_REMARKS);
     HWND hServerAddr = GetDlgItem(hDlg, IDC_EDT_SERVER_ADDR);
@@ -1406,46 +1433,53 @@ static void save_dlg_to_config(HWND hDlg, struct server_config* config)
     HWND hOtPath = GetDlgItem(hDlg, IDC_EDT_OT_PATH);
 
     GetWindowTextW(hRemarks, w_tmp, ARRAYSIZE(w_tmp));
-    wchar_string_to_utf8(w_tmp, a_tmp, ARRAYSIZE(a_tmp));
-    string_safe_assign(&config->remarks, a_tmp);
+    a_tmp = wchar_string_to_utf8(w_tmp, &malloc);
+    string_safe_assign(&config->remarks, a_tmp?a_tmp:"");
+    free(a_tmp);
 
     GetWindowTextW(hServerAddr, w_tmp, ARRAYSIZE(w_tmp));
-    wchar_string_to_utf8(w_tmp, a_tmp, ARRAYSIZE(a_tmp));
-    string_safe_assign(&config->remote_host, a_tmp);
+    a_tmp = wchar_string_to_utf8(w_tmp, &malloc);
+    string_safe_assign(&config->remote_host, a_tmp?a_tmp:"");
+    free(a_tmp);
 
-    GetWindowTextA(hServerPort, a_tmp, ARRAYSIZE(a_tmp));
-    config->remote_port = (unsigned short)strtol(a_tmp, NULL, 10);
+    GetWindowTextA(hServerPort, a_tmp2, ARRAYSIZE(a_tmp2));
+    config->remote_port = (unsigned short)strtol(a_tmp2, NULL, 10);
 
     GetWindowTextW(hPassword, w_tmp, ARRAYSIZE(w_tmp));
-    wchar_string_to_utf8(w_tmp, a_tmp, ARRAYSIZE(a_tmp));
-    string_safe_assign(&config->password, a_tmp);
+    a_tmp = wchar_string_to_utf8(w_tmp, &malloc);
+    string_safe_assign(&config->password, a_tmp?a_tmp:"");
+    free(a_tmp);
 
-    GetWindowTextA(hMethod, a_tmp, ARRAYSIZE(a_tmp));
-    string_safe_assign(&config->method, a_tmp);
+    GetWindowTextA(hMethod, a_tmp2, ARRAYSIZE(a_tmp2));
+    string_safe_assign(&config->method, a_tmp2);
 
-    GetWindowTextA(hProtocol, a_tmp, ARRAYSIZE(a_tmp));
-    string_safe_assign(&config->protocol, a_tmp);
+    GetWindowTextA(hProtocol, a_tmp2, ARRAYSIZE(a_tmp2));
+    string_safe_assign(&config->protocol, a_tmp2);
 
     GetWindowTextW(hProtocolParam, w_tmp, ARRAYSIZE(w_tmp));
-    wchar_string_to_utf8(w_tmp, a_tmp, ARRAYSIZE(a_tmp));
-    string_safe_assign(&config->protocol_param, a_tmp);
+    a_tmp = wchar_string_to_utf8(w_tmp, &malloc);
+    string_safe_assign(&config->protocol_param, a_tmp?a_tmp:"");
+    free(a_tmp);
 
-    GetWindowTextA(hObfs, a_tmp, ARRAYSIZE(a_tmp));
-    string_safe_assign(&config->obfs, a_tmp);
+    GetWindowTextA(hObfs, a_tmp2, ARRAYSIZE(a_tmp2));
+    string_safe_assign(&config->obfs, a_tmp2);
 
     GetWindowTextW(hObfsParam, w_tmp, ARRAYSIZE(w_tmp));
-    wchar_string_to_utf8(w_tmp, a_tmp, ARRAYSIZE(a_tmp));
-    string_safe_assign(&config->obfs_param, a_tmp);
+    a_tmp = wchar_string_to_utf8(w_tmp, &malloc);
+    string_safe_assign(&config->obfs_param, a_tmp?a_tmp:"");
+    free(a_tmp);
 
     config->over_tls_enable = Button_GetCheck(hOtEnable) ? true : false;
 
     GetWindowTextW(hOtDomain, w_tmp, ARRAYSIZE(w_tmp));
-    wchar_string_to_utf8(w_tmp, a_tmp, ARRAYSIZE(a_tmp));
-    string_safe_assign(&config->over_tls_server_domain, a_tmp);
+    a_tmp = wchar_string_to_utf8(w_tmp, &malloc);
+    string_safe_assign(&config->over_tls_server_domain, a_tmp?a_tmp:"");
+    free(a_tmp);
 
     GetWindowTextW(hOtPath, w_tmp, ARRAYSIZE(w_tmp));
-    wchar_string_to_utf8(w_tmp, a_tmp, ARRAYSIZE(a_tmp));
-    string_safe_assign(&config->over_tls_path, a_tmp);
+    a_tmp = wchar_string_to_utf8(w_tmp, &malloc);
+    string_safe_assign(&config->over_tls_path, a_tmp?a_tmp:"");
+    free(a_tmp);
 }
 
 static void combo_box_set_cur_sel(HWND hCombo, const wchar_t* cur_sel)
@@ -1511,14 +1545,7 @@ static char* retrieve_string_from_clipboard(HWND hWnd, void* (*allocator)(size_t
             char* lptstr = (char*)GlobalLock(hglb);
             if (lptstr != NULL) {
                 if (format == CF_UNICODETEXT) {
-                    size_t len = (lstrlenW((wchar_t*)lptstr) + 1) * 2;
-                    char* tmp = (char*)calloc(len, sizeof(*tmp));
-                    if (tmp) {
-                        lptstr = wchar_string_to_utf8((wchar_t*)lptstr, tmp, len);
-                    }
-                    else {
-                        lptstr = NULL;
-                    }
+                    lptstr = wchar_string_to_utf8((wchar_t*)lptstr, &malloc);
                 }
                 if (lptstr) {
                     result = (char*)allocator(lstrlenA(lptstr) + 1);

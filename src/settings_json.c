@@ -271,9 +271,9 @@ struct json_object* build_json_from_config(struct server_config* config) {
     json_object_object_add(jso, "password", json_object_new_string(config->password));
     json_object_object_add(jso, "method", json_object_new_string(config->method));
     json_object_object_add(jso, "protocol", json_object_new_string(config->protocol));
-    json_object_object_add(jso, "protocol_param", json_object_new_string(config->protocol_param));
+    json_object_object_add(jso, "protocol_param", json_object_new_string(config->protocol_param?config->protocol_param:""));
     json_object_object_add(jso, "obfs", json_object_new_string(config->obfs));
-    json_object_object_add(jso, "obfs_param", json_object_new_string(config->obfs_param));
+    json_object_object_add(jso, "obfs_param", json_object_new_string(config->obfs_param?config->obfs_param:""));
     json_object_object_add(jso, "udp", json_object_new_boolean(config->udp));
     json_object_object_add(jso, "idle_timeout", json_object_new_int((int32_t)(config->idle_timeout / MILLISECONDS_PER_SECOND)));
     json_object_object_add(jso, "connect_timeout", json_object_new_int((int32_t)(config->connect_timeout_ms / MILLISECONDS_PER_SECOND)));
@@ -288,8 +288,8 @@ struct json_object* build_json_from_config(struct server_config* config) {
 
     jso_ot = json_object_new_object();
     json_object_object_add(jso_ot, "enable", json_object_new_boolean(config->over_tls_enable));
-    json_object_object_add(jso_ot, "server_domain", json_object_new_string(config->over_tls_server_domain));
-    json_object_object_add(jso_ot, "path", json_object_new_string(config->over_tls_path));
+    json_object_object_add(jso_ot, "server_domain", json_object_new_string(config->over_tls_server_domain?config->over_tls_server_domain:""));
+    json_object_object_add(jso_ot, "path", json_object_new_string(config->over_tls_path?config->over_tls_path:""));
     json_object_object_add(jso, "over_tls_settings", jso_ot);
 
     return jso;

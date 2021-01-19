@@ -326,7 +326,7 @@ int configure_routing(struct router_info* pInfo, const char* proxyIp, const char
     char* new_proxy_ip = NULL;
     (void)isAutoConnect;
     do {
-        wchar_t tmp[MAX_PATH] = { 0 };
+        wchar_t* tmp = NULL;
 
         if (proxyIp == NULL || strlen(proxyIp) == 0) {
             break;
@@ -337,7 +337,9 @@ int configure_routing(struct router_info* pInfo, const char* proxyIp, const char
         }
 
         if (lstrlenA(tapDeviceName)) {
-            lstrcpyW(pInfo->tapDeviceName, utf8_to_wchar_string(tapDeviceName, tmp, ARRAYSIZE(tmp)));
+            tmp = utf8_to_wchar_string(tapDeviceName, &malloc);
+            lstrcpyW(pInfo->tapDeviceName, tmp);
+            free(tmp);
         } else {
             lstrcpyW(pInfo->tapDeviceName, TAP_DEVICE_NAME);
         }
@@ -347,12 +349,16 @@ int configure_routing(struct router_info* pInfo, const char* proxyIp, const char
             break;
         }
 
-        lstrcpyW(pInfo->remoteProxyIp, utf8_to_wchar_string(new_proxy_ip, tmp, ARRAYSIZE(tmp)));
+        tmp = utf8_to_wchar_string(new_proxy_ip, &malloc);
+        lstrcpyW(pInfo->remoteProxyIp, tmp?tmp:L"");
+        free(tmp);
 
         enum_adapter_info(AF_UNSPEC, retrieve_tap_gateway_ip, pInfo);
         if (lstrlenW(pInfo->tapGatewayIp) == 0) {
             if (lstrlenA(tapDeviceGatewayIp)) {
-                lstrcpyW(pInfo->tapGatewayIp, utf8_to_wchar_string(tapDeviceGatewayIp, tmp, ARRAYSIZE(tmp)));
+                tmp = utf8_to_wchar_string(tapDeviceGatewayIp, &malloc);
+                lstrcpyW(pInfo->tapGatewayIp, tmp?tmp:L"");
+                free(tmp);
             } else {
                 lstrcpyW(pInfo->tapGatewayIp, TAP_DEVICE_GATEWAY_IP);
             }
@@ -364,16 +370,18 @@ int configure_routing(struct router_info* pInfo, const char* proxyIp, const char
             static const MIB_IPFORWARDROW dummy = { 0 };
             struct in_addr gatewayIp;
 
-            struct GET_IPFORWARDROW tmp = { pInfo->tapInterfaceIndex, { 0 } };
-            enum_ip_forward_table(get_system_ipv4_gateway, &tmp);
-            if (memcmp(&tmp.best_row, &dummy, sizeof(dummy)) == 0) {
+            struct GET_IPFORWARDROW tmpGIP = { pInfo->tapInterfaceIndex, { 0 } };
+            enum_ip_forward_table(get_system_ipv4_gateway, &tmpGIP);
+            if (memcmp(&tmpGIP.best_row, &dummy, sizeof(dummy)) == 0) {
                 break;
             }
 
-            pInfo->gatewayInterfaceIndex = (int)tmp.best_row.dwForwardIfIndex;
+            pInfo->gatewayInterfaceIndex = (int)tmpGIP.best_row.dwForwardIfIndex;
 
-            gatewayIp.s_addr = (ULONG)tmp.best_row.dwForwardNextHop;
-            utf8_to_wchar_string(inet_ntoa(gatewayIp), pInfo->gatewayIp, ARRAYSIZE(pInfo->gatewayIp));
+            gatewayIp.s_addr = (ULONG)tmpGIP.best_row.dwForwardNextHop;
+            tmp = utf8_to_wchar_string(inet_ntoa(gatewayIp), &malloc);
+            lstrcpynW(pInfo->gatewayIp, tmp?tmp:L"", ARRAYSIZE(pInfo->gatewayIp));
+            free(tmp);
         }
 #endif
 

@@ -171,12 +171,13 @@ DWORD __stdcall client_thread(LPVOID lpvParam)
             }
 
             done_size = 0;
-            fSuccess = WriteFile(ctx->pipe, result, result_size, &done_size, NULL);
+            fSuccess = WriteFile(ctx->pipe, result, (DWORD)result_size, &done_size, NULL);
 
             if (!fSuccess || result_size != done_size) {
                 wchar_t* info = get_last_error_to_string(GetLastError(), &malloc);
-                char tmp[BUFSIZE] = { 0 };
-                sprintf((char*)buffer, "WriteFile failed for \"%s\"\n", wchar_string_to_utf8(info, tmp, sizeof(tmp)));
+                char* tmp = wchar_string_to_utf8(info, &malloc);
+                sprintf((char*)buffer, "WriteFile failed for \"%s\"\n", tmp?tmp:"");
+                free(tmp);
                 free(info);
                 write_to_log((char*)buffer);
                 break;
