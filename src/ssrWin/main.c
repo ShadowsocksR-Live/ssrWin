@@ -39,6 +39,7 @@ struct main_wnd_data {
     int ssr_listen_port;
     int privoxy_listen_port;
     int delay_quit_ms;
+    int change_inet_opts;
 };
 
 #define TRAY_ICON_ID 1
@@ -321,7 +322,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             else {
                 assert(wnd_data->client_ctx == NULL);
                 config = retrieve_config_from_list_view(wnd_data->hListView, wnd_data->cur_selected);
-                wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data->ssr_listen_host, wnd_data->ssr_listen_port, wnd_data->privoxy_listen_port, wnd_data->delay_quit_ms);
+                wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data->ssr_listen_host, wnd_data->ssr_listen_port, wnd_data->privoxy_listen_port, wnd_data->delay_quit_ms, wnd_data->change_inet_opts);
                 if (wnd_data->client_ctx == NULL) {
                     const char*info = ssr_client_error_string();
                     put_string_to_rich_edit_control(wnd_data->hWndLogBox, info, 2);
@@ -330,7 +331,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             break;
         case ID_CMD_STOP:
             assert(wnd_data->client_ctx != NULL);
-            ssr_client_terminate(wnd_data->client_ctx);
+            ssr_client_terminate(wnd_data->client_ctx, wnd_data->change_inet_opts);
             wnd_data->client_ctx = NULL;
             break;
         default:
@@ -420,6 +421,7 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
     wnd_data->ssr_listen_port = 0;
     wnd_data->privoxy_listen_port = PRIVOXY_LISTEN_PORT;
     wnd_data->delay_quit_ms = SSR_DELAY_QUIT_MIN;
+    wnd_data->change_inet_opts = TRUE;
 
     wnd_data->hMainDlg = hWnd;
     RestoreWindowPos(hWnd);
@@ -460,6 +462,9 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
 
             sizeBuff = sizeof(wnd_data->delay_quit_ms);
             lRet = RegQueryValueExW(hKey, L"delay_quit_ms", 0, &dwtype, (BYTE*)&wnd_data->delay_quit_ms, &sizeBuff);
+
+            sizeBuff = sizeof(wnd_data->change_inet_opts);
+            lRet = RegQueryValueExW(hKey, L"change_inet_opts", 0, &dwtype, (BYTE*)&wnd_data->change_inet_opts, &sizeBuff);
 
             RegCloseKey(hKey);
         }
@@ -512,7 +517,7 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
         assert(wnd_data->client_ctx == NULL);
         config = retrieve_config_from_list_view(wnd_data->hListView, index);
         assert(config);
-        wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data->ssr_listen_host, wnd_data->ssr_listen_port, wnd_data->privoxy_listen_port, wnd_data->delay_quit_ms);
+        wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data->ssr_listen_host, wnd_data->ssr_listen_port, wnd_data->privoxy_listen_port, wnd_data->delay_quit_ms, wnd_data->change_inet_opts);
         if (wnd_data->client_ctx == NULL) {
             const char*info = ssr_client_error_string();
             put_string_to_rich_edit_control(wnd_data->hWndLogBox, info, 2);
@@ -548,6 +553,7 @@ static void on_wm_destroy(HWND hWnd) {
         RegSetValueExW(hKey, L"ssr_listen_port", 0, REG_BINARY, (BYTE*)&wnd_data->ssr_listen_port, sizeof(wnd_data->ssr_listen_port));
         RegSetValueExW(hKey, L"privoxy_listen_port", 0, REG_BINARY, (BYTE*)&wnd_data->privoxy_listen_port, sizeof(wnd_data->privoxy_listen_port));
         RegSetValueExW(hKey, L"delay_quit_ms", 0, REG_BINARY, (BYTE*)&wnd_data->delay_quit_ms, sizeof(wnd_data->delay_quit_ms));
+        RegSetValueExW(hKey, L"change_inet_opts", 0, REG_BINARY, (BYTE*)&wnd_data->change_inet_opts, sizeof(wnd_data->change_inet_opts));
 
         RegCloseKey(hKey);
     } while (0);
@@ -568,7 +574,7 @@ static void on_wm_destroy(HWND hWnd) {
         }
     }
 
-    ssr_client_terminate(wnd_data->client_ctx);
+    ssr_client_terminate(wnd_data->client_ctx, wnd_data->change_inet_opts);
     CloseHandle(wnd_data->mutex_dump_info);
     free(wnd_data);
 
@@ -1287,6 +1293,7 @@ static INT_PTR CALLBACK OptionsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, 
         SetDlgItemInt(hDlg, IDC_EDT_SSR_PORT, wnd_data->ssr_listen_port, FALSE);
         SetDlgItemInt(hDlg, IDC_EDT_PRIVOXY_PORT, wnd_data->privoxy_listen_port, FALSE);
         SetDlgItemInt(hDlg, IDC_EDT_DELAY_MS, wnd_data->delay_quit_ms, FALSE);
+        CheckDlgButton(hDlg, IDC_CHK_CHANGE_INET_OPTS, wnd_data->change_inet_opts);
 
         return TRUE;
     case WM_COMMAND:
@@ -1299,6 +1306,7 @@ static INT_PTR CALLBACK OptionsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, 
             SetDlgItemTextW(hDlg, IDC_EDT_SSR_PORT, L"0");
             SetDlgItemInt(hDlg, IDC_EDT_PRIVOXY_PORT, PRIVOXY_LISTEN_PORT, FALSE);
             SetDlgItemInt(hDlg, IDC_EDT_DELAY_MS, SSR_DELAY_QUIT_MIN, FALSE);
+            CheckDlgButton(hDlg, IDC_CHK_CHANGE_INET_OPTS, TRUE);
             break;
         case IDOK:
             assert(wnd_data);
@@ -1308,6 +1316,7 @@ static INT_PTR CALLBACK OptionsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, 
             wnd_data->ssr_listen_port = GetDlgItemInt(hDlg, IDC_EDT_SSR_PORT, NULL, FALSE);
             wnd_data->privoxy_listen_port = GetDlgItemInt(hDlg, IDC_EDT_PRIVOXY_PORT, NULL, FALSE);
             wnd_data->delay_quit_ms = GetDlgItemInt(hDlg, IDC_EDT_DELAY_MS, NULL, FALSE);
+            wnd_data->change_inet_opts = IsDlgButtonChecked(hDlg, IDC_CHK_CHANGE_INET_OPTS);
             // fall through.
         case IDCANCEL:
             wnd_data = NULL;

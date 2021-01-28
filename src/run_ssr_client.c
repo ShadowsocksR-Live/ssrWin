@@ -35,7 +35,7 @@ const char* ssr_client_error_string(void) {
     return error_info;
 }
 
-struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, const char* ssr_listen_host, int ssr_listen_port, int proxy_listen_port, int delay_quit_ms)
+struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, const char* ssr_listen_host, int ssr_listen_port, int proxy_listen_port, int delay_quit_ms, int change_inet_opts)
 {
     struct ssr_client_ctx* ctx = NULL;
     DWORD threadId = 0;
@@ -85,7 +85,9 @@ struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, const 
     error_code = ssr_get_client_error_code(ctx->state);
     if (error_code == 0) {
         ctx->hPrivoxySvr = CreateThread(NULL, 0, PrivoxyThread, ctx, 0, &threadId);
-        enable_system_proxy(PRIVOXY_LISTEN_ADDR, ctx->privoxy_listen_port);
+        if (change_inet_opts != 0) {
+            enable_system_proxy(PRIVOXY_LISTEN_ADDR, ctx->privoxy_listen_port);
+        }
     } else {
         WaitForSingleObject(ctx->hSsrClient, INFINITE);
         CloseHandle(ctx->hSsrClient);
@@ -98,7 +100,7 @@ struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, const 
     return ctx;
 }
 
-void ssr_client_terminate(struct ssr_client_ctx* ctx) {
+void ssr_client_terminate(struct ssr_client_ctx* ctx, int change_inet_opts) {
     if (ctx) {
         ssr_run_loop_shutdown(ctx->state);
         WaitForSingleObject(ctx->hSsrClient, INFINITE);
@@ -111,7 +113,9 @@ void ssr_client_terminate(struct ssr_client_ctx* ctx) {
 
         free(ctx);
 
-        disable_system_proxy();
+        if (change_inet_opts != 0) {
+            disable_system_proxy();
+        }
     }
 }
 
