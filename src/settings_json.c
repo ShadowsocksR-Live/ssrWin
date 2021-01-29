@@ -298,6 +298,7 @@ struct json_object* build_json_from_config(struct server_config* config) {
 bool save_single_config_to_json_file(struct server_config* config, const char* file_path) {
     struct json_object* jso;
     int flags;
+    bool rs = true;
     if (config == NULL || file_path == NULL) {
         return false;
     }
@@ -307,9 +308,39 @@ bool save_single_config_to_json_file(struct server_config* config, const char* f
     }
     flags = JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY;
     if (json_object_to_file_ext(file_path, jso, flags) == -1) {
-        return false;
+        rs = false;
     }
-    return true;
+    json_object_put(jso);
+    return rs;
+}
+
+char* config_to_json_string(struct server_config* config, void* (*allocator)(size_t)) {
+    struct json_object* jso = NULL;
+    char* res = NULL;
+    do {
+        const char* tmp;
+        int flags;
+        if (config == NULL || allocator == NULL) {
+            break;
+        }
+        jso = build_json_from_config(config);
+        if (jso == NULL) {
+            break;
+        }
+        flags = JSON_C_TO_STRING_SPACED | JSON_C_TO_STRING_PRETTY;
+        tmp = json_object_to_json_string_ext(jso, flags);
+        if (tmp == NULL) {
+            assert(!"json_object_to_json_string_ext");
+            break;
+        }
+        res = (char*)allocator((strlen(tmp) + 1) * sizeof(*res));
+        if (res == NULL) {
+            break;
+        }
+        strcpy(res, tmp);
+    } while(0);
+    json_object_put(jso);
+    return res;
 }
 
 struct config_json_saver {
