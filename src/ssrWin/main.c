@@ -88,7 +88,7 @@ static struct server_config* retrieve_config_from_list_view(HWND hListView, int 
 static void json_config_iter(struct server_config* config, void* p);
 static char* retrieve_string_from_clipboard(HWND hWnd, void* (*allocator)(size_t));
 static void SetFocusToPreviousInstance(const wchar_t* windowClass, const wchar_t* windowCaption);
-static int put_string_to_rich_edit_control(HWND hWnd, const char *pszText, int style);
+static int put_string_to_rich_edit_control(HWND hWnd, BOOL remove_old, const char *pszText, int style);
 
 int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmdLine, int nCmdShow)
 {
@@ -325,7 +325,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
                 wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data->ssr_listen_host, wnd_data->ssr_listen_port, wnd_data->privoxy_listen_port, wnd_data->delay_quit_ms, wnd_data->change_inet_opts);
                 if (wnd_data->client_ctx == NULL) {
                     const char*info = ssr_client_error_string();
-                    put_string_to_rich_edit_control(wnd_data->hWndLogBox, info, 2);
+                    put_string_to_rich_edit_control(wnd_data->hWndLogBox, TRUE, info, 2);
                 }
             }
             break;
@@ -399,7 +399,7 @@ static void on_wm_dump_info(HWND hWnd, WPARAM wParam, LPARAM lParam) {
     WaitForSingleObject(wnd_data->mutex_dump_info, INFINITE);
     {
         struct dump_info* data = (struct dump_info*)lParam;
-        put_string_to_rich_edit_control(wnd_data->hWndLogBox, data->info, data->dump_level);
+        put_string_to_rich_edit_control(wnd_data->hWndLogBox, TRUE, data->info, data->dump_level);
         free(data->info);
         free(data);
     }
@@ -520,7 +520,7 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
         wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data->ssr_listen_host, wnd_data->ssr_listen_port, wnd_data->privoxy_listen_port, wnd_data->delay_quit_ms, wnd_data->change_inet_opts);
         if (wnd_data->client_ctx == NULL) {
             const char*info = ssr_client_error_string();
-            put_string_to_rich_edit_control(wnd_data->hWndLogBox, info, 2);
+            put_string_to_rich_edit_control(wnd_data->hWndLogBox, TRUE, info, 2);
         }
     } while (0);
 }
@@ -1592,10 +1592,11 @@ static void SetFocusToPreviousInstance(const wchar_t* windowClass, const wchar_t
 #define STYLE_LINK      2
 #define STYLE_HEADER    3
 
-static int put_string_to_rich_edit_control(HWND hWnd, const char* text, int style)
+static int put_string_to_rich_edit_control(HWND hWnd, BOOL remove_old, const char* text, int style)
 {
 #define DEFAULT_LOG_FONT_SIZE  8
 #define DEFAULT_LOG_FONT_NAME "MS Sans Serif"
+#define MAX_LOG_LENGTH (10000 * 100)
 
    CHARRANGE range;
    CHARFORMATA format;
@@ -1608,6 +1609,10 @@ static int put_string_to_rich_edit_control(HWND hWnd, const char* text, int styl
 
    /* Go to the end of the text */
    nTextLength = GetWindowTextLengthA(hWnd);
+   if (remove_old && (nTextLength > MAX_LOG_LENGTH)) {
+       SetWindowTextA(hWnd, "");
+       nTextLength = 0;
+   }
    range.cpMin = nTextLength;
    range.cpMax = nTextLength;
    SendMessageA(hWnd, EM_EXSETSEL, 0, (LPARAM) &range);
