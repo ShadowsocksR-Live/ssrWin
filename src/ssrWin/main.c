@@ -331,7 +331,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             break;
         case ID_CMD_STOP:
             assert(wnd_data->client_ctx != NULL);
-            ssr_client_terminate(wnd_data->client_ctx, wnd_data->change_inet_opts);
+            ssr_client_terminate(wnd_data->client_ctx);
             wnd_data->client_ctx = NULL;
             break;
         default:
@@ -574,7 +574,7 @@ static void on_wm_destroy(HWND hWnd) {
         }
     }
 
-    ssr_client_terminate(wnd_data->client_ctx, wnd_data->change_inet_opts);
+    ssr_client_terminate(wnd_data->client_ctx);
     CloseHandle(wnd_data->mutex_dump_info);
     free(wnd_data);
 

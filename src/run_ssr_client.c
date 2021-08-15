@@ -87,6 +87,8 @@ struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, const 
         ctx->hPrivoxySvr = CreateThread(NULL, 0, PrivoxyThread, ctx, 0, &threadId);
         if (change_inet_opts != 0) {
             enable_system_proxy(PRIVOXY_LISTEN_ADDR, ctx->privoxy_listen_port);
+        } else {
+            disable_system_proxy();
         }
     } else {
         WaitForSingleObject(ctx->hSsrClient, INFINITE);
@@ -100,7 +102,7 @@ struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, const 
     return ctx;
 }
 
-void ssr_client_terminate(struct ssr_client_ctx* ctx, int change_inet_opts) {
+void ssr_client_terminate(struct ssr_client_ctx* ctx) {
     if (ctx) {
         ssr_run_loop_shutdown(ctx->state);
         WaitForSingleObject(ctx->hSsrClient, INFINITE);
@@ -113,9 +115,7 @@ void ssr_client_terminate(struct ssr_client_ctx* ctx, int change_inet_opts) {
 
         free(ctx);
 
-        if (change_inet_opts != 0) {
-            disable_system_proxy();
-        }
+        disable_system_proxy();
     }
 }
 
