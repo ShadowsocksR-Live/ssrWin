@@ -47,8 +47,9 @@ struct main_wnd_data {
 #define MENU_ID_NODE_BEGINNING 60000
 #define WM_DUMP_INFO (WM_USER + 4)
 
-#define APP_NAME_KEY "ssrWin"
-#define APP_REG_KEY L"Software\\ssrwin"
+static char APP_NAME_KEY[MAX_PATH] = "dummy";
+static wchar_t APP_REG_KEY[MAX_PATH] = L"Software\\dummy";
+#define APP_REG_KEY_FMT L"Software\\%s"
 #define AUTO_RUN_REG_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
 
 ATOM RegisterWndClass(HINSTANCE hInstance, const wchar_t* szWindowClass);
@@ -102,12 +103,36 @@ int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmd
     HICON hIconApp;
     wchar_t WndClass[MAX_PATH] = { 0 };
     wchar_t AppName[MAX_PATH] = { 0 };
+    wchar_t MutexName[MAX_PATH] = { 0 };
     UNREFERENCED_PARAMETER(lpszCmdLine);
+
+    {
+        char AppNameExe[MAX_PATH] = { 0 };
+        char *p;
+        wchar_t *pw;
+        GetModuleFileNameA(NULL, AppNameExe, sizeof(AppNameExe));
+        p = strrchr(AppNameExe, '\\');
+        if (p) {
+            strcpy(APP_NAME_KEY, p + 1);
+            p = strrchr(APP_NAME_KEY, '.');
+            if (p) {
+                *p = '\0';
+            }
+        }
+        assert(APP_NAME_KEY[0] != 0);
+
+        pw = utf8_to_wchar_string(APP_NAME_KEY, &malloc);
+
+        wsprintf(APP_REG_KEY, APP_REG_KEY_FMT, pw);
+        wsprintf(MutexName, L"%s_single_instance", pw);
+
+        free(pw);
+    }
 
     LoadStringW(hInstance, IDS_MAIN_WND_CLASS, WndClass, ARRAYSIZE(WndClass));
     LoadStringW(hInstance, IDS_APP_NAME, AppName, ARRAYSIZE(AppName));
 
-    hMutexHandle = CreateMutexW(NULL, TRUE, L"ssr_win_single_instance");
+    hMutexHandle = CreateMutexW(NULL, TRUE, MutexName);
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
         SetFocusToPreviousInstance(WndClass, AppName);
         return 0;
@@ -1286,6 +1311,13 @@ static INT_PTR CALLBACK OptionsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, 
         wnd_data = (struct main_wnd_data*)lParam;
         hIconApp = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SSRWIN));
         SendMessage(hDlg, WM_SETICON, ICON_BIG, (LPARAM)hIconApp);
+
+        {
+            char fmt[MAX_PATH] = { 0 }, txt[MAX_PATH] = { 0 };
+            GetDlgItemTextA(hDlg, IDC_CHK_AUTO_RUN, fmt, sizeof(fmt));
+            sprintf(txt, fmt, APP_NAME_KEY);
+            SetDlgItemTextA(hDlg, IDC_CHK_AUTO_RUN, txt);
+        }
 
         CheckDlgButton(hDlg, IDC_CHK_AUTO_RUN, wnd_data->auto_run);
         CheckDlgButton(hDlg, IDC_CHK_AUTO_CONN, wnd_data->auto_connect);
