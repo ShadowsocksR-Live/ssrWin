@@ -888,7 +888,7 @@ static INT_PTR CALLBACK QrCodeDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, L
     static struct server_config* config;
     HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtrW(hDlg, GWLP_HINSTANCE);
     HICON hIconApp;
-    static char* qrcode_str;
+    static char* qrcode_str = NULL;
     static HBITMAP hBmp = NULL;
     HDC dc, mdc;
     RECT rc;
