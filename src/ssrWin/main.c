@@ -37,6 +37,7 @@ struct main_wnd_data {
     BOOL auto_connect;
     char ssr_listen_host[MAX_PATH];
     int ssr_listen_port;
+    char privoxy_listen_host[MAX_PATH];
     int privoxy_listen_port;
     int delay_quit_ms;
     int change_inet_opts;
@@ -347,7 +348,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             else {
                 assert(wnd_data->client_ctx == NULL);
                 config = retrieve_config_from_list_view(wnd_data->hListView, wnd_data->cur_selected);
-                wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data->ssr_listen_host, wnd_data->ssr_listen_port, wnd_data->privoxy_listen_port, wnd_data->delay_quit_ms, wnd_data->change_inet_opts);
+                wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data->ssr_listen_host, wnd_data->ssr_listen_port, wnd_data->privoxy_listen_host, wnd_data->privoxy_listen_port, wnd_data->delay_quit_ms, wnd_data->change_inet_opts);
                 if (wnd_data->client_ctx == NULL) {
                     const char*info = ssr_client_error_string();
                     put_string_to_rich_edit_control(wnd_data->hWndLogBox, TRUE, info, 2);
@@ -444,6 +445,7 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
     wnd_data->auto_run = FALSE;
     lstrcpyA(wnd_data->ssr_listen_host, "127.0.0.1");
     wnd_data->ssr_listen_port = 0;
+    lstrcpyA(wnd_data->privoxy_listen_host, PRIVOXY_LISTEN_ADDR);
     wnd_data->privoxy_listen_port = PRIVOXY_LISTEN_PORT;
     wnd_data->delay_quit_ms = SSR_DELAY_QUIT_MIN;
     wnd_data->change_inet_opts = TRUE;
@@ -481,6 +483,9 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
 
             sizeBuff = sizeof(wnd_data->ssr_listen_port);
             lRet = RegQueryValueExW(hKey, L"ssr_listen_port", 0, &dwtype, (BYTE*)&wnd_data->ssr_listen_port, &sizeBuff);
+
+            sizeBuff = sizeof(wnd_data->privoxy_listen_host);
+            lRet = RegQueryValueExW(hKey, L"privoxy_listen_host", 0, &dwtype, (BYTE*)&wnd_data->privoxy_listen_host[0], &sizeBuff);
 
             sizeBuff = sizeof(wnd_data->privoxy_listen_port);
             lRet = RegQueryValueExW(hKey, L"privoxy_listen_port", 0, &dwtype, (BYTE*)&wnd_data->privoxy_listen_port, &sizeBuff);
@@ -542,7 +547,7 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
         assert(wnd_data->client_ctx == NULL);
         config = retrieve_config_from_list_view(wnd_data->hListView, index);
         assert(config);
-        wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data->ssr_listen_host, wnd_data->ssr_listen_port, wnd_data->privoxy_listen_port, wnd_data->delay_quit_ms, wnd_data->change_inet_opts);
+        wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data->ssr_listen_host, wnd_data->ssr_listen_port, wnd_data->privoxy_listen_host, wnd_data->privoxy_listen_port, wnd_data->delay_quit_ms, wnd_data->change_inet_opts);
         if (wnd_data->client_ctx == NULL) {
             const char*info = ssr_client_error_string();
             put_string_to_rich_edit_control(wnd_data->hWndLogBox, TRUE, info, 2);
@@ -576,6 +581,7 @@ static void on_wm_destroy(HWND hWnd) {
         RegSetValueExW(hKey, L"auto_connect", 0, REG_BINARY, (BYTE*)&wnd_data->auto_connect, sizeof(wnd_data->auto_connect));
         RegSetValueExW(hKey, L"ssr_listen_host", 0, REG_BINARY, (BYTE*)&wnd_data->ssr_listen_host[0], sizeof(wnd_data->ssr_listen_host));
         RegSetValueExW(hKey, L"ssr_listen_port", 0, REG_BINARY, (BYTE*)&wnd_data->ssr_listen_port, sizeof(wnd_data->ssr_listen_port));
+        RegSetValueExW(hKey, L"privoxy_listen_host", 0, REG_BINARY, (BYTE*)&wnd_data->privoxy_listen_host[0], sizeof(wnd_data->privoxy_listen_host));
         RegSetValueExW(hKey, L"privoxy_listen_port", 0, REG_BINARY, (BYTE*)&wnd_data->privoxy_listen_port, sizeof(wnd_data->privoxy_listen_port));
         RegSetValueExW(hKey, L"delay_quit_ms", 0, REG_BINARY, (BYTE*)&wnd_data->delay_quit_ms, sizeof(wnd_data->delay_quit_ms));
         RegSetValueExW(hKey, L"change_inet_opts", 0, REG_BINARY, (BYTE*)&wnd_data->change_inet_opts, sizeof(wnd_data->change_inet_opts));
@@ -1323,6 +1329,7 @@ static INT_PTR CALLBACK OptionsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, 
         CheckDlgButton(hDlg, IDC_CHK_AUTO_CONN, wnd_data->auto_connect);
         SetDlgItemTextA(hDlg, IDC_EDT_SSR_HOST, wnd_data->ssr_listen_host);
         SetDlgItemInt(hDlg, IDC_EDT_SSR_PORT, wnd_data->ssr_listen_port, FALSE);
+        SetDlgItemTextA(hDlg, IDC_EDT_PRIVOXY_HOST, wnd_data->privoxy_listen_host);
         SetDlgItemInt(hDlg, IDC_EDT_PRIVOXY_PORT, wnd_data->privoxy_listen_port, FALSE);
         SetDlgItemInt(hDlg, IDC_EDT_DELAY_MS, wnd_data->delay_quit_ms, FALSE);
         CheckDlgButton(hDlg, IDC_CHK_CHANGE_INET_OPTS, wnd_data->change_inet_opts);
@@ -1336,6 +1343,7 @@ static INT_PTR CALLBACK OptionsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, 
             CheckDlgButton(hDlg, IDC_CHK_AUTO_CONN, FALSE);
             SetDlgItemTextW(hDlg, IDC_EDT_SSR_HOST, L"127.0.0.1");
             SetDlgItemTextW(hDlg, IDC_EDT_SSR_PORT, L"0");
+            SetDlgItemTextA(hDlg, IDC_EDT_PRIVOXY_HOST, PRIVOXY_LISTEN_ADDR);
             SetDlgItemInt(hDlg, IDC_EDT_PRIVOXY_PORT, PRIVOXY_LISTEN_PORT, FALSE);
             SetDlgItemInt(hDlg, IDC_EDT_DELAY_MS, SSR_DELAY_QUIT_MIN, FALSE);
             CheckDlgButton(hDlg, IDC_CHK_CHANGE_INET_OPTS, TRUE);
@@ -1346,6 +1354,7 @@ static INT_PTR CALLBACK OptionsDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, 
             wnd_data->auto_connect = IsDlgButtonChecked(hDlg, IDC_CHK_AUTO_CONN);
             GetDlgItemTextA(hDlg, IDC_EDT_SSR_HOST, wnd_data->ssr_listen_host, sizeof(wnd_data->ssr_listen_host));
             wnd_data->ssr_listen_port = GetDlgItemInt(hDlg, IDC_EDT_SSR_PORT, NULL, FALSE);
+            GetDlgItemTextA(hDlg, IDC_EDT_PRIVOXY_HOST, wnd_data->privoxy_listen_host, sizeof(wnd_data->privoxy_listen_host));
             wnd_data->privoxy_listen_port = GetDlgItemInt(hDlg, IDC_EDT_PRIVOXY_PORT, NULL, FALSE);
             wnd_data->delay_quit_ms = GetDlgItemInt(hDlg, IDC_EDT_DELAY_MS, NULL, FALSE);
             wnd_data->change_inet_opts = IsDlgButtonChecked(hDlg, IDC_CHK_CHANGE_INET_OPTS);

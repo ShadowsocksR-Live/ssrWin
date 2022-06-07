@@ -9,9 +9,10 @@
 #include "run_ssr_client.h"
 #include "proxy_settings.h"
 #include "server_connectivity.h"
+#include "utf8_to_wchar.h"
 
 #define PRIVOXY_CONFIG_CONTENT_FMT \
-    "listen-address  127.0.0.1:%d\r\n" \
+    "listen-address  %s:%d\r\n" \
     "forward-socks5 / 127.0.0.1:%d .\r\n"
 
 static DWORD WINAPI SsrClientThread(LPVOID lpParam);
@@ -26,6 +27,7 @@ struct ssr_client_ctx {
     struct ssr_client_state* state;
     int delay_ms;
     uint16_t real_listen_port;
+    char privoxy_listen_host[MAX_PATH];
     uint16_t privoxy_listen_port;
 };
 
@@ -35,7 +37,7 @@ const char* ssr_client_error_string(void) {
     return error_info;
 }
 
-struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, const char* ssr_listen_host, int ssr_listen_port, int proxy_listen_port, int delay_quit_ms, int change_inet_opts)
+struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, const char* ssr_listen_host, int ssr_listen_port, const char* proxy_listen_host, int proxy_listen_port, int delay_quit_ms, int change_inet_opts)
 {
     struct ssr_client_ctx* ctx = NULL;
     DWORD threadId = 0;
@@ -74,6 +76,7 @@ struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, const 
     ctx->config->listen_port = (unsigned short)ssr_listen_port;
     string_safe_assign(&ctx->config->listen_host, ssr_listen_host);
 
+    strcpy(ctx->privoxy_listen_host, proxy_listen_host);
     ctx->privoxy_listen_port = (uint16_t)proxy_listen_port;
     ctx->delay_ms = (delay_quit_ms < SSR_DELAY_QUIT_MIN) ? SSR_DELAY_QUIT_MIN : delay_quit_ms;
 
@@ -86,7 +89,9 @@ struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, const 
     if (error_code == 0) {
         ctx->hPrivoxySvr = CreateThread(NULL, 0, PrivoxyThread, ctx, 0, &threadId);
         if (change_inet_opts != 0) {
-            enable_system_proxy(PRIVOXY_LISTEN_ADDR, ctx->privoxy_listen_port);
+            wchar_t*p = utf8_to_wchar_string(ctx->privoxy_listen_host, &malloc);
+            enable_system_proxy(p, ctx->privoxy_listen_port);
+            free(p);
         } else {
             disable_system_proxy();
         }
@@ -163,7 +168,7 @@ static DWORD WINAPI PrivoxyThread(LPVOID lpParam) {
     }
 
     assert(ctx->real_listen_port != 0);
-    sprintf(content, PRIVOXY_CONFIG_CONTENT_FMT, ctx->privoxy_listen_port, ctx->real_listen_port);
+    sprintf(content, PRIVOXY_CONFIG_CONTENT_FMT, ctx->privoxy_listen_host, ctx->privoxy_listen_port, ctx->real_listen_port);
 
     hFile = CreateFileA(privoxy_config_file, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hFile == INVALID_HANDLE_VALUE) {
