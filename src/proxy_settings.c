@@ -12,6 +12,11 @@ BOOL enable_system_proxy(const wchar_t* proxy_addr, int port)
     DWORD   dwBufSize = sizeof(list);
     INTERNET_PER_CONN_OPTIONW options[3];
     wchar_t proxy_full_addr[MAX_PATH] = { 0 };
+    const wchar_t*alt = proxy_addr;
+
+    if (wcscmp(proxy_addr, L"0.0.0.0") == 0) {
+        alt = L"127.0.0.1";
+    }
 
     // Fill out list struct.
     list.dwSize = sizeof(list);
@@ -27,7 +32,7 @@ BOOL enable_system_proxy(const wchar_t* proxy_addr, int port)
 
     // Set proxy name.
     list.pOptions[1].dwOption = INTERNET_PER_CONN_PROXY_SERVER;
-    wsprintfW(proxy_full_addr, L"%s:%d", proxy_addr, port);
+    wsprintfW(proxy_full_addr, L"%s:%d", alt, port);
     list.pOptions[1].Value.pszValue = (LPWSTR)proxy_full_addr;
 
     // Set proxy override.
