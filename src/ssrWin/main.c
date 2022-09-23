@@ -663,6 +663,7 @@ static void on_cmd_scan_screen_qrcode(HWND hWnd) {
 }
 
 static void modify_popup_menu_items(struct main_wnd_data* wnd_data, HMENU hMenu) {
+#define INSERT_POSITION 10
     int cur_selected;
     int node_count = ListView_GetItemCount(wnd_data->hListView);
     int menu_count = GetMenuItemCount(hMenu);
@@ -672,6 +673,9 @@ static void modify_popup_menu_items(struct main_wnd_data* wnd_data, HMENU hMenu)
         if (MENU_ID_NODE_BEGINNING <= item_id && item_id < MENU_ID_NODE_BEGINNING + menu_count) {
             DeleteMenu(hMenu, item_id, MF_BYCOMMAND);
         }
+    }
+    if (GetMenuItemID(hMenu, INSERT_POSITION) == 0) {
+        DeleteMenu(hMenu, INSERT_POSITION, MF_BYPOSITION);
     }
     for (index = node_count - 1; index >= 0; --index) {
         wchar_t *tmp;
@@ -684,8 +688,12 @@ static void modify_popup_menu_items(struct main_wnd_data* wnd_data, HMENU hMenu)
         }
         name = lstrlenA(config->remarks) ? config->remarks : config->remote_host;
         tmp = utf8_to_wchar_string(name, &malloc);
-        InsertMenuW(hMenu, 10, MF_STRING | MF_BYPOSITION, (UINT)(MENU_ID_NODE_BEGINNING + index), tmp ? tmp : L"");
+        InsertMenuW(hMenu, INSERT_POSITION, MF_STRING | MF_BYPOSITION, (UINT)(MENU_ID_NODE_BEGINNING + index), tmp ? tmp : L"");
         free(tmp);
+    }
+
+    if (node_count > 0) {
+        InsertMenu(hMenu, INSERT_POSITION + node_count, MF_SEPARATOR | MF_BYPOSITION, 0, NULL);
     }
 
     cur_selected = adjust_current_selected_item(wnd_data->cur_selected, node_count);
