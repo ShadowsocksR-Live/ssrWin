@@ -62,6 +62,7 @@ static void on_wm_destroy(HWND hWnd);
 static void on_cmd_clipboard_import_url(HWND hWnd);
 static void on_cmd_scan_screen_qrcode(HWND hWnd);
 static int adjust_current_selected_item(int cur_sel, int total_count);
+static void modify_popup_menu_items(struct main_wnd_data* wnd_data, HMENU hMenu);
 static void before_tray_menu_popup(HMENU hMenu, void* p);
 static void TrayClickCb(void* p);
 static void ShowWindowSimple(HWND hWnd, BOOL bShow);
@@ -151,7 +152,7 @@ int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmd
     hMainDlg = InitInstance(hInstance, WndClass, AppName, nCmdShow);
 
     {
-        hMenuTray = LoadMenu(hInstance, MAKEINTRESOURCE(IDR_TRAYMENU));
+        hMenuTray = LoadMenu(hInstance, MAKEINTRESOURCE(IDR_MENU_MAIN));
         hmenu = GetSubMenu(hMenuTray, 0);
         hTrayWnd = CreateTrayWindow(hInstance, hmenu, hMainDlg);
 
@@ -227,6 +228,7 @@ struct json_iter_data {
 };
 
 LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    HMENU hMenu;
     LRESULT lResult = 0;
     int count, cur_selected;
     struct server_config* config;
@@ -393,6 +395,12 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         break;
     case WM_NOTIFY:
         passToNext = (handle_wm_notify_from_list_view(hWnd, (int)wParam, (LPNMHDR)lParam, &lResult) == FALSE);
+        break;
+    case WM_INITMENU:
+        hMenu = GetMenu(hWnd);
+        if ((HMENU)wParam == hMenu) {
+            modify_popup_menu_items(wnd_data, GetSubMenu(hMenu, 0));
+        }
         break;
     default:
         break;
@@ -655,17 +663,17 @@ static void on_cmd_scan_screen_qrcode(HWND hWnd) {
 }
 
 static void modify_popup_menu_items(struct main_wnd_data* wnd_data, HMENU hMenu) {
+    int cur_selected;
     int node_count = ListView_GetItemCount(wnd_data->hListView);
     int menu_count = GetMenuItemCount(hMenu);
     int index;
     for (index = menu_count - 1; index >= 0; --index) {
         int item_id = GetMenuItemID(hMenu, index);
-        if (item_id == 0) {
-            break;
+        if (MENU_ID_NODE_BEGINNING <= item_id && item_id < MENU_ID_NODE_BEGINNING + menu_count) {
+            DeleteMenu(hMenu, item_id, MF_BYCOMMAND);
         }
-        DeleteMenu(hMenu, item_id, MF_BYCOMMAND);
     }
-    for (index = 0; index < node_count; ++index) {
+    for (index = node_count - 1; index >= 0; --index) {
         wchar_t *tmp;
         struct server_config* config;
         char* name;
@@ -676,22 +684,22 @@ static void modify_popup_menu_items(struct main_wnd_data* wnd_data, HMENU hMenu)
         }
         name = lstrlenA(config->remarks) ? config->remarks : config->remote_host;
         tmp = utf8_to_wchar_string(name, &malloc);
-        AppendMenuW(hMenu, MF_STRING, (UINT)(MENU_ID_NODE_BEGINNING + index), tmp?tmp:L"");
+        InsertMenuW(hMenu, 10, MF_STRING | MF_BYPOSITION, (UINT)(MENU_ID_NODE_BEGINNING + index), tmp ? tmp : L"");
         free(tmp);
     }
-    {
-        int cur_selected = adjust_current_selected_item(wnd_data->cur_selected, node_count);
-        set_current_selected_item(wnd_data->hMainDlg, cur_selected, TRUE);
-    }
-    if (wnd_data->cur_selected >= 0) {
+
+    cur_selected = adjust_current_selected_item(wnd_data->cur_selected, node_count);
+    set_current_selected_item(wnd_data->hMainDlg, cur_selected, TRUE);
+
+    if (cur_selected >= 0) {
         CheckMenuRadioItem(hMenu,
-            MENU_ID_NODE_BEGINNING,
+            (UINT)(MENU_ID_NODE_BEGINNING),
             (UINT)(MENU_ID_NODE_BEGINNING + node_count - 1),
-            (UINT)(MENU_ID_NODE_BEGINNING + wnd_data->cur_selected),
+            (UINT)(MENU_ID_NODE_BEGINNING + cur_selected),
             MF_BYCOMMAND | MF_CHECKED);
     }
 
-    EnableMenuItem(hMenu, ID_CMD_RUN, MF_BYCOMMAND | ((wnd_data->client_ctx == NULL) && (wnd_data->cur_selected >= 0) ? MF_ENABLED : MF_GRAYED));
+    EnableMenuItem(hMenu, ID_CMD_RUN, MF_BYCOMMAND | ((wnd_data->client_ctx == NULL) && (cur_selected >= 0) ? MF_ENABLED : MF_GRAYED));
     EnableMenuItem(hMenu, ID_CMD_STOP, MF_BYCOMMAND | (wnd_data->client_ctx != NULL ? MF_ENABLED : MF_GRAYED));
 }
 
