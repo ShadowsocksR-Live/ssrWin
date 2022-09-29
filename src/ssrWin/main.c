@@ -663,7 +663,7 @@ static void on_cmd_scan_screen_qrcode(HWND hWnd) {
 }
 
 static void modify_popup_menu_items(struct main_wnd_data* wnd_data, HMENU hMenu) {
-#define INSERT_POSITION 10
+#define INSERT_POSITION 7
     int cur_selected;
     int node_count = ListView_GetItemCount(wnd_data->hListView);
     int menu_count = GetMenuItemCount(hMenu);
