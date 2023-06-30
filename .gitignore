@@ -5,6 +5,7 @@
 *.sdf
 *.opensdf
 *.aps
+*.json
 ipch/
 Debug/
 Release/

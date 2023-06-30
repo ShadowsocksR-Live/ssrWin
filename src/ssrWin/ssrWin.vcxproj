@@ -153,6 +153,7 @@
   <ItemGroup>
     <ClInclude Include="..\capture_screen.h" />
     <ClInclude Include="..\comm_with_named_pipe.h" />
+    <ClInclude Include="..\overtls.h" />
     <ClInclude Include="..\proxy_settings.h" />
     <ClInclude Include="..\qrcode_dec.h" />
     <ClInclude Include="..\qrcode_gen.h" />
@@ -172,6 +173,7 @@
   <ItemGroup>
     <ClCompile Include="..\capture_screen.c" />
     <ClCompile Include="..\comm_with_named_pipe.c" />
+    <ClCompile Include="..\overtls.c" />
     <ClCompile Include="..\proxy_settings.c" />
     <ClCompile Include="..\qrcode_dec.c" />
     <ClCompile Include="..\qrcode_gen.c" />

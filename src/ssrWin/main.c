@@ -41,6 +41,8 @@ struct main_wnd_data {
     int privoxy_listen_port;
     int delay_quit_ms;
     int change_inet_opts;
+
+    void (*log_info_callback)(int log_level, const char* log, void* ctx);
 };
 
 #define TRAY_ICON_ID 1
@@ -350,7 +352,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             else {
                 assert(wnd_data->client_ctx == NULL);
                 config = retrieve_config_from_list_view(wnd_data->hListView, wnd_data->cur_selected);
-                wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data->ssr_listen_host, wnd_data->ssr_listen_port, wnd_data->privoxy_listen_host, wnd_data->privoxy_listen_port, wnd_data->delay_quit_ms, wnd_data->change_inet_opts);
+                wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data);
                 if (wnd_data->client_ctx == NULL) {
                     const char*info = ssr_client_error_string();
                     put_string_to_rich_edit_control(wnd_data->hWndLogBox, TRUE, info, 2);
@@ -416,7 +418,7 @@ struct dump_info {
     char* info;
 };
 
-static void dump_info_callback(int dump_level, const char* info, void* p) {
+void dump_info_callback(int dump_level, const char* info, void* p) {
     struct main_wnd_data* wnd_data = (struct main_wnd_data*)p;
     WaitForSingleObject(wnd_data->mutex_dump_info, INFINITE);
     {
@@ -540,7 +542,7 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
     }
 
     set_app_name(APP_NAME_KEY);
-    set_dump_info_callback(dump_info_callback, wnd_data);
+    wnd_data->log_info_callback = dump_info_callback;
 
     do {
         static struct server_config* config;
@@ -555,12 +557,40 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
         assert(wnd_data->client_ctx == NULL);
         config = retrieve_config_from_list_view(wnd_data->hListView, index);
         assert(config);
-        wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data->ssr_listen_host, wnd_data->ssr_listen_port, wnd_data->privoxy_listen_host, wnd_data->privoxy_listen_port, wnd_data->delay_quit_ms, wnd_data->change_inet_opts);
+        wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data);
         if (wnd_data->client_ctx == NULL) {
             const char*info = ssr_client_error_string();
             put_string_to_rich_edit_control(wnd_data->hWndLogBox, TRUE, info, 2);
         }
     } while (0);
+}
+
+p_log_callback get_log_callback_ptr(const struct main_wnd_data* data) {
+    return data ? data->log_info_callback : NULL;
+}
+
+const char * get_ssr_listen_host(const struct main_wnd_data* data) {
+    return data ? data->ssr_listen_host : NULL;
+}
+
+int get_ssr_listen_port(const struct main_wnd_data* data) {
+    return data ? data->ssr_listen_port : 0;
+}
+
+const char * get_privoxy_listen_host(const struct main_wnd_data* data) {
+    return data ? data->privoxy_listen_host : NULL;
+}
+
+int get_privoxy_listen_port(const struct main_wnd_data* data) {
+    return data ? data->privoxy_listen_port : 0;
+}
+
+int get_delay_quit_ms(const struct main_wnd_data* data) {
+    return data ? data->delay_quit_ms : 0;
+}
+
+int get_change_inet_opts(const struct main_wnd_data* data) {
+    return data ? data->change_inet_opts : 0;
 }
 
 static void on_wm_destroy(HWND hWnd) {

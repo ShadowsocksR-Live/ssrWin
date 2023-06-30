@@ -1,8 +1,10 @@
 # SSR client for Windows
 
-This client integrates [SSRoT](https://github.com/ShadowsocksR-Live/shadowsocksr-native/wiki) functions and is simple to operate.
+This client integrates [overtls](https://github.com/ShadowsocksR-Live/overtls) and [SSRoT](https://github.com/ShadowsocksR-Live/shadowsocksr-native/wiki) functions and is simple to operate.
 
 This software is open source software.
+
+[Overtls](https://github.com/ShadowsocksR-Live/overtls) server installation is [here](https://github.com/ShadowsocksR-Live/overtls#server-side-one-click-installation-script)
 
 [SSRoT](https://github.com/ShadowsocksR-Live/shadowsocksr-native/wiki) server installation tutorial is [here](https://github.com/ShadowsocksR-Live/shadowsocksr-native/wiki/%E5%85%A8%E8%87%AA%E5%8A%A8%E5%AE%89%E8%A3%85-SSRoT-%E6%9C%8D%E5%8A%A1%E5%99%A8). Sorry for it's Chinese.
 

@@ -10,6 +10,7 @@
 #include "proxy_settings.h"
 #include "server_connectivity.h"
 #include "utf8_to_wchar.h"
+#include "overtls.h"
 
 #define PRIVOXY_CONFIG_CONTENT_FMT \
     "listen-address  %s:%d\r\n" \
@@ -29,7 +30,12 @@ struct ssr_client_ctx {
     uint16_t real_listen_port;
     char privoxy_listen_host[MAX_PATH];
     uint16_t privoxy_listen_port;
+    const struct main_wnd_data* wnd_data;
 };
+
+const struct main_wnd_data* get_main_wnd_data_from_ctx(const struct ssr_client_ctx* ctx) {
+    return ctx ? ctx->wnd_data : NULL;
+}
 
 static char error_info[MAX_PATH * 4] = { 0 };
 
@@ -37,11 +43,18 @@ const char* ssr_client_error_string(void) {
     return error_info;
 }
 
-struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, const char* ssr_listen_host, int ssr_listen_port, const char* proxy_listen_host, int proxy_listen_port, int delay_quit_ms, int change_inet_opts)
+struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, const struct main_wnd_data* data)
 {
     struct ssr_client_ctx* ctx = NULL;
     DWORD threadId = 0;
     int error_code = 0;
+
+    const char* ssr_listen_host = get_ssr_listen_host(data);
+    int ssr_listen_port = get_ssr_listen_port(data);
+    const char* proxy_listen_host = get_privoxy_listen_host(data);
+    int proxy_listen_port = get_privoxy_listen_port(data);
+    int delay_quit_ms = get_delay_quit_ms(data);
+    int change_inet_opts = get_change_inet_opts(data);
 
     error_info[0] = '\0';
 
@@ -69,6 +82,7 @@ struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, const 
     }
 
     ctx = (struct ssr_client_ctx*)calloc(1, sizeof(*ctx));
+    ctx->wnd_data = data;
 
     ctx->config = config_clone(config);
 
@@ -85,7 +99,12 @@ struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, const 
     WaitForSingleObject(ctx->hOrderKeeper, INFINITE);
     CloseHandle(ctx->hOrderKeeper);
 
-    error_code = ssr_get_client_error_code(ctx->state);
+    if (overtls_lib_initialize() && config_is_overtls(ctx->config)) {
+        error_code = 0;
+    }
+    else {
+        error_code = ssr_get_client_error_code(ctx->state);
+    }
     if (error_code == 0) {
         ctx->hPrivoxySvr = CreateThread(NULL, 0, PrivoxyThread, ctx, 0, &threadId);
         if (change_inet_opts != 0) {
@@ -109,7 +128,12 @@ struct ssr_client_ctx* ssr_client_begin_run(struct server_config* config, const 
 
 void ssr_client_terminate(struct ssr_client_ctx* ctx) {
     if (ctx) {
-        ssr_run_loop_shutdown(ctx->state);
+        if (overtls_lib_initialize() && config_is_overtls(ctx->config)) {
+            assert(ctx->state == NULL);
+            overtls_client_stop();
+        }else {
+            ssr_run_loop_shutdown(ctx->state);
+        }
         WaitForSingleObject(ctx->hSsrClient, INFINITE);
         CloseHandle(ctx->hSsrClient);
         config_release(ctx->config);
@@ -134,9 +158,25 @@ static void ssr_feedback_state(struct ssr_client_state* state, void* p) {
     SetEvent(ctx->hOrderKeeper);
 }
 
+static void listen_port_callback(int listen_port, void* p) {
+    struct ssr_client_ctx* ctx = (struct ssr_client_ctx*)p;
+    ctx->real_listen_port = listen_port;
+    SetEvent(ctx->hOrderKeeper);
+}
+
 static DWORD WINAPI SsrClientThread(LPVOID lpParam) {
     struct ssr_client_ctx* ctx = (struct ssr_client_ctx*)lpParam;
-    ssr_run_loop_begin(ctx->config, &ssr_feedback_state, ctx);
+    if (overtls_lib_initialize() && config_is_overtls(ctx->config)) {
+        // run overtls thread
+        if (false == overtls_run_loop_begin(ctx->config, &listen_port_callback, ctx)) {
+            listen_port_callback(0, ctx);
+        }
+    }
+    else {
+        set_dump_info_callback(get_log_callback_ptr(ctx->wnd_data), (void*)ctx->wnd_data);
+        ssr_run_loop_begin(ctx->config, &ssr_feedback_state, ctx);
+        set_dump_info_callback(NULL, NULL);
+    }
     return 0;
 }
 
