@@ -424,7 +424,8 @@ void dump_info_callback(int dump_level, const char* info, void* p) {
     {
         struct dump_info* data = (struct dump_info*) calloc(1, sizeof(*data));
         data->dump_level = dump_level;
-        data->info = strdup(info);
+        data->info = (char*)calloc(strlen(info) + 10, sizeof(char));
+        sprintf(data->info, "%s\r\n", info);
         PostMessage(wnd_data->hMainDlg, WM_DUMP_INFO, 0, (LPARAM)data);
     }
     ReleaseMutex(wnd_data->mutex_dump_info);
