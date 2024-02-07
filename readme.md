@@ -8,6 +8,9 @@ This software is open source software.
 
 [SSRoT](https://github.com/ShadowsocksR-Live/shadowsocksr-native/wiki) server installation tutorial is [here](https://github.com/ShadowsocksR-Live/shadowsocksr-native/wiki/%E5%85%A8%E8%87%AA%E5%8A%A8%E5%AE%89%E8%A3%85-SSRoT-%E6%9C%8D%E5%8A%A1%E5%99%A8). Sorry for it's Chinese.
 
+[Socks-hub](https://github.com/ssrlive/socks-hub) is a converter from HTTP/HTTPS proxy to SOCKS5 proxy,
+which is a bridge between `Overtls`(or `SSRoT`) and your browser.
+
 ![img](img/img01.png)
 
 ![img](img/img02.png)
