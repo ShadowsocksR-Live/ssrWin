@@ -7,10 +7,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ssrWin", "ssrWin\ssrWin.vcx
 		{F1F4BA6A-0368-4F34-95BB-C29A2244A772} = {F1F4BA6A-0368-4F34-95BB-C29A2244A772}
 		{F97AD980-48B0-4C94-9662-499EFEE4AB44} = {F97AD980-48B0-4C94-9662-499EFEE4AB44}
 		{E8072FB6-41C5-3D5C-A66F-329FB8A4D760} = {E8072FB6-41C5-3D5C-A66F-329FB8A4D760}
-		{63EEE6DF-B47C-4CB5-B3C2-199D73978450} = {63EEE6DF-B47C-4CB5-B3C2-199D73978450}
 	EndProjectSection
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libPrivoxy", "..\depends\privoxy\windows\libPrivoxy.vcxproj", "{63EEE6DF-B47C-4CB5-B3C2-199D73978450}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "json-c", "..\depends\ssr-native\depends\json-c\win32\json-c.vcxproj", "{F1F4BA6A-0368-4F34-95BB-C29A2244A772}"
 EndProject
@@ -70,14 +67,6 @@ Global
 		{78E82813-DC2F-402E-9494-9C2844CD8641}.Release|Win32.Build.0 = Release|Win32
 		{78E82813-DC2F-402E-9494-9C2844CD8641}.Release|x64.ActiveCfg = Release|x64
 		{78E82813-DC2F-402E-9494-9C2844CD8641}.Release|x64.Build.0 = Release|x64
-		{63EEE6DF-B47C-4CB5-B3C2-199D73978450}.Debug|Win32.ActiveCfg = Debug|Win32
-		{63EEE6DF-B47C-4CB5-B3C2-199D73978450}.Debug|Win32.Build.0 = Debug|Win32
-		{63EEE6DF-B47C-4CB5-B3C2-199D73978450}.Debug|x64.ActiveCfg = Debug|x64
-		{63EEE6DF-B47C-4CB5-B3C2-199D73978450}.Debug|x64.Build.0 = Debug|x64
-		{63EEE6DF-B47C-4CB5-B3C2-199D73978450}.Release|Win32.ActiveCfg = Release|Win32
-		{63EEE6DF-B47C-4CB5-B3C2-199D73978450}.Release|Win32.Build.0 = Release|Win32
-		{63EEE6DF-B47C-4CB5-B3C2-199D73978450}.Release|x64.ActiveCfg = Release|x64
-		{63EEE6DF-B47C-4CB5-B3C2-199D73978450}.Release|x64.Build.0 = Release|x64
 		{F1F4BA6A-0368-4F34-95BB-C29A2244A772}.Debug|Win32.ActiveCfg = Debug|Win32
 		{F1F4BA6A-0368-4F34-95BB-C29A2244A772}.Debug|Win32.Build.0 = Debug|Win32
 		{F1F4BA6A-0368-4F34-95BB-C29A2244A772}.Debug|x64.ActiveCfg = Debug|x64
@@ -185,5 +174,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E84F8101-2612-46A3-9E2D-B1A472F0A9FC}
 	EndGlobalSection
 EndGlobal

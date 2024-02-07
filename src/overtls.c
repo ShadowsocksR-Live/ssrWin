@@ -73,8 +73,6 @@ bool overtls_run_loop_begin(const struct server_config* cf,
 
     overtls_set_log_callback(NULL, NULL);
 
-    overtls_lib_unload();
-
     return true;
 }
 

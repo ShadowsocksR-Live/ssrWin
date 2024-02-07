@@ -9,8 +9,8 @@ extern "C" {
 
 #define SSR_DELAY_QUIT_MIN 500
 
-#define PRIVOXY_LISTEN_ADDR "127.0.0.1"
-#define PRIVOXY_LISTEN_PORT 8118
+#define HTTP_PROXY_LISTEN_ADDR "127.0.0.1"
+#define HTTP_PROXY_LISTEN_PORT 8118
 
 struct ssr_client_ctx;
 struct server_config;
@@ -27,8 +27,8 @@ p_log_callback get_log_callback_ptr(const struct main_wnd_data* data);
 
 const char* get_ssr_listen_host(const struct main_wnd_data* data);
 int get_ssr_listen_port(const struct main_wnd_data* data);
-const char* get_privoxy_listen_host(const struct main_wnd_data* data);
-int get_privoxy_listen_port(const struct main_wnd_data* data);
+const char* get_http_proxy_listen_host(const struct main_wnd_data* data);
+int get_http_proxy_listen_port(const struct main_wnd_data* data);
 int get_delay_quit_ms(const struct main_wnd_data* data);
 int get_change_inet_opts(const struct main_wnd_data* data);
 
