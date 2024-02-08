@@ -1,4 +1,4 @@
-#include <Windows.h>
+﻿#include <Windows.h>
 #include <WindowsX.h>
 #include <tchar.h>
 #include <CommCtrl.h>
@@ -42,7 +42,7 @@ struct main_wnd_data {
     int delay_quit_ms;
     int change_inet_opts;
 
-    void (*log_info_callback)(int log_level, const char* log, void* ctx);
+    void (*log_info_callback)(ArgVerbosity verbosity, const char* log, void* ctx);
 };
 
 #define TRAY_ICON_ID 1
@@ -93,7 +93,7 @@ static struct server_config* retrieve_config_from_list_view(HWND hListView, int 
 static void json_config_iter(struct server_config* config, void* p);
 static char* retrieve_string_from_clipboard(HWND hWnd, void* (*allocator)(size_t));
 static void SetFocusToPreviousInstance(const wchar_t* windowClass, const wchar_t* windowCaption);
-static int put_string_to_rich_edit_control(HWND hWnd, BOOL remove_old, const char *pszText, int style);
+static int put_string_to_rich_edit_control(HWND hWnd, BOOL remove_old, const char *pszText, ArgVerbosity verbosity);
 
 int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmdLine, int nCmdShow)
 {
@@ -355,7 +355,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
                 wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data);
                 if (wnd_data->client_ctx == NULL) {
                     const char*info = ssr_client_error_string();
-                    put_string_to_rich_edit_control(wnd_data->hWndLogBox, TRUE, info, 2);
+                    put_string_to_rich_edit_control(wnd_data->hWndLogBox, TRUE, info, Warn);
                 }
             }
             break;
@@ -414,17 +414,17 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
 }
 
 struct dump_info {
-    int dump_level;
+    ArgVerbosity verbosity;
     char* info;
 };
 
-void dump_info_callback(int dump_level, const char* info, void* p) {
+void dump_info_callback(ArgVerbosity verbosity, const char* info, void* p) {
     struct main_wnd_data* wnd_data = (struct main_wnd_data*)p;
     WaitForSingleObject(wnd_data->mutex_dump_info, INFINITE);
     {
         size_t len = strlen(info);
         struct dump_info* data = (struct dump_info*) calloc(1, sizeof(*data));
-        data->dump_level = dump_level;
+        data->verbosity = verbosity;
         data->info = (char*)calloc(len + 10, sizeof(char));
         if (len >= 1 && info[len - 1] == '\n') {
             sprintf(data->info, "%s", info);
@@ -442,7 +442,7 @@ static void on_wm_dump_info(HWND hWnd, WPARAM wParam, LPARAM lParam) {
     WaitForSingleObject(wnd_data->mutex_dump_info, INFINITE);
     {
         struct dump_info* data = (struct dump_info*)lParam;
-        put_string_to_rich_edit_control(wnd_data->hWndLogBox, TRUE, data->info, data->dump_level);
+        put_string_to_rich_edit_control(wnd_data->hWndLogBox, TRUE, data->info, data->verbosity);
         free(data->info);
         free(data);
     }
@@ -567,7 +567,7 @@ static void on_wm_create(HWND hWnd, LPCREATESTRUCTW pcs)
         wnd_data->client_ctx = ssr_client_begin_run(config, wnd_data);
         if (wnd_data->client_ctx == NULL) {
             const char*info = ssr_client_error_string();
-            put_string_to_rich_edit_control(wnd_data->hWndLogBox, TRUE, info, 2);
+            put_string_to_rich_edit_control(wnd_data->hWndLogBox, TRUE, info, Warn);
         }
     } while (0);
 }
@@ -1681,12 +1681,7 @@ static void SetFocusToPreviousInstance(const wchar_t* windowClass, const wchar_t
     }
 }
 
-#define STYLE_NONE      0
-#define STYLE_HIGHLIGHT 1
-#define STYLE_LINK      2
-#define STYLE_HEADER    3
-
-static int put_string_to_rich_edit_control(HWND hWnd, BOOL remove_old, const char* text, int style)
+static int put_string_to_rich_edit_control(HWND hWnd, BOOL remove_old, const char* text, ArgVerbosity verbosity)
 {
 #define DEFAULT_LOG_FONT_SIZE  8
 #define DEFAULT_LOG_FONT_NAME "MS Sans Serif"
@@ -1719,19 +1714,22 @@ static int put_string_to_rich_edit_control(HWND hWnd, BOOL remove_old, const cha
    format.bCharSet = DEFAULT_CHARSET;
    format.yHeight = (DEFAULT_LOG_FONT_SIZE * 1440) / 72;
    lstrcpynA(format.szFaceName, DEFAULT_LOG_FONT_NAME, sizeof(format.szFaceName));
-   if (style == STYLE_NONE) {
-      /* DO NOTHING */
-      format.dwEffects |= CFE_AUTOCOLOR;
-   }
-   else if (style == STYLE_HEADER) {
-      format.dwEffects |= CFE_AUTOCOLOR | CFE_ITALIC;
-   }
-   else if (style == STYLE_HIGHLIGHT) {
-      format.dwEffects |= CFE_AUTOCOLOR | CFE_BOLD;
-   }
-   else if (style == STYLE_LINK) {
-      format.dwEffects |= CFE_UNDERLINE;
-      format.crTextColor = RGB(0, 0, 255);
+   switch (verbosity) {
+   case Error:
+       format.crTextColor = RGB(255, 0, 0);
+       break;
+   case Warn:
+       format.crTextColor = RGB(168, 181, 50);
+       break;
+   case Info:
+       format.crTextColor = RGB(19, 161, 14);
+       break;
+   case Debug:
+       format.crTextColor = RGB(0, 55, 218);
+       break;
+   default:
+       format.crTextColor = RGB(58, 150, 221);
+       break;
    }
    SendMessageA(hWnd, EM_SETCHARFORMAT, SCF_SELECTION, (LPARAM) &format);
 

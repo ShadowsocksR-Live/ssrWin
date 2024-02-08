@@ -4,6 +4,10 @@
 #include <assert.h>
 #include "run_ssr_client.h"
 
+//
+// https://github.com/ShadowsocksR-Live/overtls/releases
+//
+
 HINSTANCE hOverTls = NULL;
 
 bool overtls_lib_initialize(void) {
@@ -22,11 +26,11 @@ void overtls_lib_unload(void) {
 }
 
 typedef int (*p_over_tls_client_run)(const char* config_path,
-    char verbose,
+    ArgVerbosity verbosity,
     void (*callback)(int listen_port, void* ctx),
     void* ctx);
 typedef int (*p_over_tls_client_stop)(void);
-typedef void (*p_overtls_set_log_callback)(void (*callback)(int log_level, const char* log, void* ctx), void* ctx);
+typedef void (*p_overtls_set_log_callback)(void (*callback)(ArgVerbosity verbosity, const char* log, void* ctx), void* ctx);
 
 const char* get_temp_json_file_path(char json_file_name[MAX_PATH * 2]);
 bool write_content_to_file(const char* content, const char* file_path);
@@ -68,7 +72,7 @@ bool overtls_run_loop_begin(const struct server_config* cf,
         return false;
     }
     // the overtls dead loop
-    res = over_tls_client_run(json_file_name, (char)TRUE, listen_port_callback, ctx);
+    res = over_tls_client_run(json_file_name, Trace, listen_port_callback, ctx);
     assert(res == 0);
 
     overtls_set_log_callback(NULL, NULL);

@@ -25,15 +25,6 @@ void socks_hub_lib_unload(void) {
     }
 }
 
-typedef enum ArgVerbosity {
-    Off = 0,
-    Error,
-    Warn,
-    Info,
-    Debug,
-    Trace,
-} ArgVerbosity;
-
 typedef enum SourceType {
     Http = 0,
     Socks5,
@@ -74,7 +65,7 @@ bool socks_hub_run_loop_begin(
         return false;
     }
     // the socks-tub dead loop
-    res = _socks_hub_run(Http, local_addr, server_addr, Info, listen_port_callback, ctx);
+    res = _socks_hub_run(Http, local_addr, server_addr, Trace, listen_port_callback, ctx);
     assert(res == 0);
 
     _socks_hub_set_log_callback(NULL, NULL);

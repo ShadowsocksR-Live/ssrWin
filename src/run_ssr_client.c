@@ -191,7 +191,9 @@ static DWORD WINAPI SsrClientThread(LPVOID lpParam) {
         }
     }
     else {
-        set_dump_info_callback(get_log_callback_ptr(ctx->wnd_data), (void*)ctx->wnd_data);
+        typedef void(*ssr_callback)(int dump_level, const char* info, void* p);
+        ssr_callback cb = (ssr_callback)get_log_callback_ptr(ctx->wnd_data);
+        set_dump_info_callback(cb, (void*)ctx->wnd_data);
         ssr_run_loop_begin(ctx->config, &ssr_feedback_state, ctx);
         set_dump_info_callback(NULL, NULL);
     }

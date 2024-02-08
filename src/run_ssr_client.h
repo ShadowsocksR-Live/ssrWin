@@ -12,6 +12,15 @@ extern "C" {
 #define HTTP_PROXY_LISTEN_ADDR "127.0.0.1"
 #define HTTP_PROXY_LISTEN_PORT 8118
 
+typedef enum ArgVerbosity {
+    Off = 0,
+    Error,
+    Warn,
+    Info,
+    Debug,
+    Trace,
+} ArgVerbosity;
+
 struct ssr_client_ctx;
 struct server_config;
 struct main_wnd_data;
@@ -22,7 +31,7 @@ const char* ssr_client_error_string(void);
 
 const struct main_wnd_data* get_main_wnd_data_from_ctx(const struct ssr_client_ctx *ctx);
 
-typedef void (*p_log_callback)(int log_level, const char* log, void* ctx);
+typedef void (*p_log_callback)(ArgVerbosity verbosity, const char* log, void* ctx);
 p_log_callback get_log_callback_ptr(const struct main_wnd_data* data);
 
 const char* get_ssr_listen_host(const struct main_wnd_data* data);
