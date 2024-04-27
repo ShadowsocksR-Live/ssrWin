@@ -205,9 +205,10 @@ BOOL CheckableGroupBox_SubclassWindow(HWND hWnd) {
     ShowWindow(hCheckBox, SW_SHOW);
 
     data = (CheckableGroupBoxData*)calloc(1, sizeof(*data));
+    assert(data);
     data->hCheckBox = hCheckBox;
 
-    SetWindowLongPtrW(hWnd, GWLP_USERDATA, (LONG)data);
+    SetWindowLongPtrW(hWnd, GWLP_USERDATA, (LONG_PTR)data);
 
     SetWindowSubclass(hWnd, CheckableGroupBoxProc, 0, 0);
 

@@ -95,7 +95,7 @@ static char* retrieve_string_from_clipboard(HWND hWnd, void* (*allocator)(size_t
 static void SetFocusToPreviousInstance(const wchar_t* windowClass, const wchar_t* windowCaption);
 static int put_string_to_rich_edit_control(HWND hWnd, BOOL remove_old, const char *pszText, ArgVerbosity verbosity);
 
-int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmdLine, int nCmdShow)
+int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpszCmdLine, _In_ int nCmdShow)
 {
     HANDLE hMutexHandle;
     HWND hMainDlg;
@@ -137,12 +137,13 @@ int PASCAL wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpszCmd
     LoadStringW(hInstance, IDS_APP_NAME, AppName, ARRAYSIZE(AppName));
 
     hMutexHandle = CreateMutexW(NULL, TRUE, MutexName);
+    assert(hMutexHandle);
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
         SetFocusToPreviousInstance(WndClass, AppName);
         return 0;
     }
 
-    CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    (void)CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
 
     LoadLibraryW(L"RICHED20.DLL");
 
@@ -424,8 +425,10 @@ void dump_info_callback(ArgVerbosity verbosity, const char* info, void* p) {
     {
         size_t len = strlen(info);
         struct dump_info* data = (struct dump_info*) calloc(1, sizeof(*data));
+        assert(data);
         data->verbosity = verbosity;
         data->info = (char*)calloc(len + 10, sizeof(char));
+        assert(data->info);
         if (len >= 1 && info[len - 1] == '\n') {
             sprintf(data->info, "%s", info);
         }
@@ -1004,7 +1007,8 @@ static INT_PTR CALLBACK QrCodeDlgProc(HWND hDlg, UINT uMessage, WPARAM wParam, L
                 return FALSE;
             }
             lptstrCopy = (char*)GlobalLock(hglbCopy);
-            lstrcpyA(lptstrCopy, qrcode_str);
+            assert(lptstrCopy);
+            (void)lstrcpyA(lptstrCopy, qrcode_str);
             GlobalUnlock(hglbCopy);
             SetClipboardData(CF_TEXT, hglbCopy);
             CloseClipboard();
@@ -1262,12 +1266,12 @@ static void on_list_view_notification_get_disp_info(NMLVDISPINFOW* plvdi, const 
     case 0:
         // L"Remarks"
         tmp = utf8_to_wchar_string(config->remarks, &malloc);
-        lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
+        (void)lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
         break;
     case 1:
         // L"Server Address"
         tmp = utf8_to_wchar_string(config->remote_host, &malloc);
-        lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
+        (void)lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
         break;
     case 2:
         // L"Server Port"
@@ -1276,46 +1280,46 @@ static void on_list_view_notification_get_disp_info(NMLVDISPINFOW* plvdi, const 
     case 3:
         // L"Method"
         tmp = utf8_to_wchar_string(config->method, &malloc);
-        lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
+        (void)lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
         break;
     case 4:
         // L"Password"
         tmp = utf8_to_wchar_string(config->password, &malloc);
-        lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
+        (void)lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
         break;
     case 5:
         // L"Protocol"
         tmp = utf8_to_wchar_string(config->protocol, &malloc);
-        lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
+        (void)lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
         break;
     case 6:
         // L"Protocol Param"
         tmp = utf8_to_wchar_string(config->protocol_param, &malloc);
-        lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
+        (void)lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
         break;
     case 7:
         // L"Obfs"
         tmp = utf8_to_wchar_string(config->obfs, &malloc);
-        lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
+        (void)lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
         break;
     case 8:
         // L"Obfs Param"
         tmp = utf8_to_wchar_string(config->obfs_param, &malloc);
-        lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
+        (void)lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
         break;
     case 9:
         // L"SSRoT Enable"
-        lstrcpynW(pszText, config->over_tls_enable ? L"True" : L"False", cchTextMax);
+        (void)lstrcpynW(pszText, config->over_tls_enable ? L"True" : L"False", cchTextMax);
         break;
     case 10:
         // L"SSRoT Domain"
         tmp = utf8_to_wchar_string(config->over_tls_server_domain, &malloc);
-        lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
+        (void)lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
         break;
     case 11:
         // L"SSRoT Path"
         tmp = utf8_to_wchar_string(config->over_tls_path, &malloc);
-        lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
+        (void)lstrcpynW(pszText, tmp?tmp:L"", cchTextMax);
         break;
     default:
         break;
@@ -1713,7 +1717,7 @@ static int put_string_to_rich_edit_control(HWND hWnd, BOOL remove_old, const cha
       CFM_ITALIC | CFM_COLOR | CFM_FACE | CFM_SIZE | CFM_CHARSET;
    format.bCharSet = DEFAULT_CHARSET;
    format.yHeight = (DEFAULT_LOG_FONT_SIZE * 1440) / 72;
-   lstrcpynA(format.szFaceName, DEFAULT_LOG_FONT_NAME, sizeof(format.szFaceName));
+   (void)lstrcpynA(format.szFaceName, DEFAULT_LOG_FONT_NAME, sizeof(format.szFaceName));
    switch (verbosity) {
    case Error:
        format.crTextColor = RGB(255, 0, 0);

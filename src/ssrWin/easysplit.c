@@ -122,8 +122,8 @@ LRESULT WINAPI es_SetColors(PESDATA esd, HWND win, WPARAM wp, LPARAM lp) {
     HPEN pen, ppen;
     HBRUSH br, pbr;
     HDC dc = GetDC(win);
-    esd->FGColor = (COLORREF)wp;
-    esd->BGColor = (COLORREF)lp;
+    esd->FGColor = (COLORREF)(wp & 0xFFFFFFFF);
+    esd->BGColor = (COLORREF)(lp & 0xFFFFFFFF);
     pen = CreatePen(PS_SOLID, 2, esd->FGColor);
     ppen = (HPEN)SelectObject(dc, pen);
     DeleteObject(ppen);
@@ -389,7 +389,7 @@ LRESULT WINAPI es_NewWindow(HWND win, LPARAM lp) {
     }
     // all values to 0
     memset(esd, 0, sizeof(ESDATA));
-    SetWindowLong(win, 0, (LONG)esd);
+    SetWindowLongPtr(win, 0, (LONG_PTR)esd);
     // handle window styles
     esd->Parent = GetParent(win);
     esd->Disabled = (((LPCREATESTRUCT)lp)->style & WS_DISABLED) > 0;
@@ -425,7 +425,7 @@ LRESULT WINAPI es_NewWindow(HWND win, LPARAM lp) {
 // message loop for splitter windows
 LRESULT CALLBACK EasySplitLoop(HWND win, UINT msg, WPARAM wp, LPARAM lp) {
     // grab control's data block
-    PESDATA esd = (PESDATA)GetWindowLong(win, 0);
+    PESDATA esd = (PESDATA)GetWindowLongPtr(win, 0);
     // do the usual
     switch (msg) {
     case ESM_GETPOS:
