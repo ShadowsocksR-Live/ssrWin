@@ -30,7 +30,7 @@ typedef int (*p_over_tls_client_run)(const char* config_path,
     void (*callback)(int listen_port, void* ctx),
     void* ctx);
 typedef int (*p_over_tls_client_stop)(void);
-typedef void (*p_overtls_set_log_callback)(void (*callback)(ArgVerbosity verbosity, const char* log, void* ctx), void* ctx);
+typedef void (*p_overtls_set_log_callback)(bool set_logger, void (*callback)(ArgVerbosity verbosity, const char* log, void* ctx), void* ctx);
 
 const char* get_temp_json_file_path(char json_file_name[MAX_PATH * 2]);
 bool write_content_to_file(const char* content, const char* file_path);
@@ -55,7 +55,7 @@ bool overtls_run_loop_begin(const struct server_config* cf,
         return false;
     }
     // enable overtls log dumping
-    overtls_set_log_callback(callback, (void*)data);
+    overtls_set_log_callback(true, callback, (void*)data);
 
     content = config_convert_to_overtls_json(cf, &malloc);
     if (content == NULL) {
@@ -75,7 +75,7 @@ bool overtls_run_loop_begin(const struct server_config* cf,
     res = over_tls_client_run(json_file_name, Trace, listen_port_callback, ctx);
     assert(res == 0);
 
-    overtls_set_log_callback(NULL, NULL);
+    overtls_set_log_callback(false, NULL, NULL);
 
     return true;
 }
